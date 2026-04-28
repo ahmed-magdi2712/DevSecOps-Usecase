@@ -2,7 +2,6 @@
 
 import asyncio
 from collections.abc import AsyncGenerator
-from typing import Any
 from unittest.mock import patch
 
 import pytest
