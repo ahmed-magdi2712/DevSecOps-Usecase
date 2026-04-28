@@ -1,9 +1,9 @@
 """JWT-based authentication and password hashing utilities."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from jose import JWTError, jwt
+from jose import jwt
 from passlib.context import CryptContext
 
 from src.app.core.config import get_settings
@@ -29,13 +29,13 @@ def create_access_token(
 ) -> str:
     """Create a signed JWT access token."""
     settings = get_settings()
-    expire = datetime.now(timezone.utc) + timedelta(
+    expire = datetime.now(UTC) + timedelta(
         minutes=settings.access_token_expire_minutes
     )
     payload: dict[str, Any] = {
         "sub": str(subject),
         "exp": expire,
-        "iat": datetime.now(timezone.utc),
+        "iat": datetime.now(UTC),
         "type": "access",
     }
     if extra_claims:
@@ -47,13 +47,13 @@ def create_access_token(
 def create_refresh_token(subject: str | int) -> str:
     """Create a signed JWT refresh token."""
     settings = get_settings()
-    expire = datetime.now(timezone.utc) + timedelta(
+    expire = datetime.now(UTC) + timedelta(
         days=settings.refresh_token_expire_days
     )
     payload: dict[str, Any] = {
         "sub": str(subject),
         "exp": expire,
-        "iat": datetime.now(timezone.utc),
+        "iat": datetime.now(UTC),
         "type": "refresh",
     }
     return jwt.encode(payload, settings.secret_key, algorithm=settings.jwt_algorithm)

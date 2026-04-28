@@ -58,8 +58,8 @@ async def refresh_token(payload: dict) -> Token:
         if claims.get("type") != "refresh":
             raise credentials_exc
         sub = claims["sub"]
-    except Exception:
-        raise credentials_exc
+    except Exception as e:
+        raise credentials_exc from e
 
     access_token = create_access_token(subject=sub)
     new_refresh = create_refresh_token(subject=sub)

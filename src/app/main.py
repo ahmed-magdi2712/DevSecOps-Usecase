@@ -1,19 +1,20 @@
 """FastAPI application factory and lifecycle management."""
 
+import time
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from prometheus_client import Counter, Histogram
-import time
 
 from src.app.api.v1 import auth, health, items, users
 from src.app.core.config import get_settings
 from src.app.core.logging import configure_logging, get_logger
 from src.app.db.session import create_tables
+
 configure_logging()
 logger = get_logger(__name__)
 
@@ -88,7 +89,7 @@ def create_app() -> FastAPI:
 
     # ── Request timing / metrics middleware ───────────────────────────────────
     @app.middleware("http")
-    async def metrics_middleware(request: Request, call_next):
+    async def metrics_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         start = time.monotonic()
         response = await call_next(request)
         latency = time.monotonic() - start
@@ -105,7 +106,7 @@ def create_app() -> FastAPI:
 
     # ── Security headers ──────────────────────────────────────────────────────
     @app.middleware("http")
-    async def security_headers(request: Request, call_next):
+    async def security_headers(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
@@ -120,7 +121,7 @@ def create_app() -> FastAPI:
 
     # ── Global exception handler ──────────────────────────────────────────────
     @app.exception_handler(Exception)
-    async def unhandled_exception_handler(request: Request, exc: Exception):
+    async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
         logger.error(
             "unhandled_exception",
             path=str(request.url),
@@ -140,7 +141,7 @@ def create_app() -> FastAPI:
 
     # Root redirect
     @app.get("/", include_in_schema=False)
-    async def root():
+    async def root() -> dict[str, str]:
         return {"message": "SecureApp API", "docs": "/docs", "health": "/api/v1/health"}
 
     return app

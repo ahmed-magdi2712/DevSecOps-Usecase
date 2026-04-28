@@ -67,9 +67,6 @@ class TestAuthorizationSecurity:
         test_superuser,
     ):
         """A user should not access another user's private item."""
-        from src.app.core.security import create_access_token
-        other_token = create_access_token(subject=str(test_superuser.id))
-        other_headers = {"Authorization": f"Bearer {other_token}"}
         # test_item belongs to test_user, not the superuser accessed as regular
         # (Superusers can still access — use a separate non-owner regular user scenario)
         response = await async_client.get(

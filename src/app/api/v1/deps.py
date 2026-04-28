@@ -39,8 +39,8 @@ async def get_current_user(
         if sub is None or token_type != "access":
             raise credentials_exc
         token_data = TokenData(sub=sub, type=token_type)
-    except JWTError:
-        raise credentials_exc
+    except JWTError as e:
+        raise credentials_exc from e
 
     user = await user_service.get_user_by_id(db, uuid.UUID(token_data.sub))
     if user is None:
