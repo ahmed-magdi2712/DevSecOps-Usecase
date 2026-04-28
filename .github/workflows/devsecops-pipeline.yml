@@ -1,11 +1,10 @@
 name: DevSecOps Pipeline
-
 on:
   push:
     branches: [main, develop, release/*]
   pull_request:
     branches: [main]
-
+  workflow_dispatch: {}
 # Cancel in-progress runs for the same branch/PR
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -425,11 +424,11 @@ jobs:
           # CycloneDX format
           syft ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
             -o cyclonedx-json > sbom.cyclonedx.json
-          
+
           # Table format for human reading
           syft ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
             -o table > sbom.txt
-          
+
           # SPDX with all relationships
           syft ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
             -o spdx-json --cataloger all-layers > sbom-full.spdx.json
@@ -738,7 +737,7 @@ jobs:
           cosign attach sbom \
             --sbom sbom/sbom.spdx.json \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }}
-          
+
           # Sign the SBOM
           cosign sign --yes \
             --attachment sbom \
@@ -756,7 +755,7 @@ jobs:
       - name: Create Vulnerability Attestation
         run: |
           # Download scan results
-          
+
           # Create vulnerability attestation
           cosign attest --yes \
             --predicate sbom/sbom.spdx.json \
@@ -848,11 +847,11 @@ jobs:
         run: |
           # Update image tag in Kustomization
           cd k8s/overlays/${{ steps.env.outputs.overlay }}
-          
+
           # Set the new image with digest
           kustomize edit set image \
             ${{ env.IMAGE_NAME }}=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }}
-          
+
           # Add annotations for signed image
           cat > patch-signature.yaml << EOF
           apiVersion: apps/v1
@@ -869,7 +868,7 @@ jobs:
                 annotations:
                   image.openshift.io/trusted: "true"
           EOF
-          
+
           # Update kustomization to include patches
           if ! grep -q "patch-signature.yaml" kustomization.yaml; then
             echo "- patch-signature.yaml" >> kustomization.yaml
@@ -911,19 +910,19 @@ jobs:
         id: deploy
         run: |
           APP_NAME="${{ github.event.repository.name }}-${{ steps.env.outputs.environment }}"
-          
+
           # Trigger sync with retry
           MAX_RETRIES=3
           RETRY_COUNT=0
-          
+
           while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
             echo "Attempt $((RETRY_COUNT + 1)) of $MAX_RETRIES"
-            
+
             if argocd app sync $APP_NAME --revision HEAD --force --timeout 300; then
               echo "Sync initiated successfully"
               break
             fi
-            
+
             RETRY_COUNT=$((RETRY_COUNT + 1))
             if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
               echo "Retrying in 30 seconds..."
@@ -934,7 +933,7 @@ jobs:
       - name: Wait for ArgoCD Sync
         run: |
           APP_NAME="${{ github.event.repository.name }}-${{ steps.env.outputs.environment }}"
-          
+
           # Wait for sync to complete
           argocd app wait $APP_NAME \
             --health \
@@ -944,17 +943,17 @@ jobs:
       - name: Get Application Status
         run: |
           APP_NAME="${{ github.event.repository.name }}-${{ steps.env.outputs.environment }}"
-          
+
           echo "## 🚀 Deployment Status" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           # Get app status
           argocd app get $APP_NAME -o wide >> $GITHUB_STEP_SUMMARY
-          
+
           # Get health status
           HEALTH=$(argocd app get $APP_NAME -o json | jq -r '.status.health.status')
           SYNC=$(argocd app get $APP_NAME -o json | jq -r '.status.sync.status')
-          
+
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Status | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
@@ -965,17 +964,17 @@ jobs:
       - name: Post-deploy Health Check
         run: |
           APP_NAME="${{ github.event.repository.name }}-${{ steps.env.outputs.environment }}"
-          
+
           # Get the service URL
           URL=$(argocd app get $APP_NAME -o json | \
             jq -r '.status.summary.externalURLs[0] // "unknown"')
-          
+
           if [[ "$URL" != "unknown" && "$URL" != "null" ]]; then
             echo "url=$URL" >> $GITHUB_OUTPUT
-            
+
             # Health check
             HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 "$URL/health" || echo "000")
-            
+
             if [[ "$HTTP_CODE" == "200" ]]; then
               echo "✅ Health check passed (HTTP $HTTP_CODE)"
             else
@@ -988,7 +987,7 @@ jobs:
         if: failure()
         run: |
           APP_NAME="${{ github.event.repository.name }}-${{ steps.env.outputs.environment }}"
-          
+
           echo "🚨 Deployment failed, initiating rollback..."
           argocd app rollback $APP_NAME
           argocd app wait $APP_NAME --health --sync --timeout 300
@@ -998,7 +997,7 @@ jobs:
         run: |
           APP_NAME="${{ github.event.repository.name }}-${{ steps.env.outputs.environment }}"
           STATUS=${{ job.status }}
-          
+
           if [[ "$STATUS" == "success" ]]; then
             EMOJI="✅"
             MESSAGE="Deployment successful"
@@ -1006,7 +1005,7 @@ jobs:
             EMOJI="❌"
             MESSAGE="Deployment failed"
           fi
-          
+
           echo "$EMOJI $MESSAGE to ${{ steps.env.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
 
   # ============================================================================
