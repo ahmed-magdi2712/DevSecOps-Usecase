@@ -123,12 +123,6 @@ jobs:
             checkov-results.sarif
           retention-days: 30
 
-      - name: Upload Checkov SARIF
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: checkov-results.sarif
-          category: checkov
 
   # ============================================================================
   # STAGE 2: TEST
