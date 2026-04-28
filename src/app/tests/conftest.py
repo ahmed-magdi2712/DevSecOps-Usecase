@@ -2,6 +2,7 @@
 
 import asyncio
 from collections.abc import AsyncGenerator
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -33,31 +34,51 @@ def get_test_settings() -> Settings:
 
 # ── Engine & session fixtures ─────────────────────────────────────────────────
 
+# Module-level engine (singleton for test session)
+_engine = None
+
 
 @pytest.fixture(scope="session")
 def event_loop():
-    """Session-scoped event loop."""
-    loop = asyncio.new_event_loop()
+    """Create an event loop for the test session."""
+    loop = asyncio.get_event_loop_policy().new_event_loop()
     yield loop
     loop.close()
 
 
 @pytest_asyncio.fixture(scope="session")
-async def test_engine():
-    """Create a test database engine."""
-    engine = create_async_engine(TEST_DATABASE_URL, future=True, echo=False)
-    async with engine.begin() as conn:
+async def test_engine(event_loop):
+    """Create a test database engine for the test session."""
+    global _engine
+    if _engine is None:
+        _engine = create_async_engine(
+            TEST_DATABASE_URL,
+            future=True,
+            echo=False,
+            pool_pre_ping=True,
+        )
+
+    async with _engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    yield engine
-    async with engine.begin() as conn:
+
+    yield _engine
+
+    async with _engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
-    await engine.dispose()
+
+    await _engine.dispose()
+    _engine = None
 
 
 @pytest_asyncio.fixture
-async def db_session(test_engine) -> AsyncGenerator[AsyncSession, None]:
+async def db_session(test_engine, event_loop) -> AsyncGenerator[AsyncSession, None]:
     """Provide a transactional test database session that rolls back after each test."""
-    factory = async_sessionmaker(bind=test_engine, expire_on_commit=False, autoflush=False)
+    factory = async_sessionmaker(
+        bind=test_engine,
+        expire_on_commit=False,
+        autoflush=False,
+    )
+
     async with factory() as session:
         async with session.begin():
             yield session
