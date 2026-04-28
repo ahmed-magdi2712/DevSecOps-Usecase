@@ -4,6 +4,13 @@ line-length = 120
 src = ["src"]
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["src/app/tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
 [tool.ruff.lint]
 select = [
     "E",   # pycodestyle errors

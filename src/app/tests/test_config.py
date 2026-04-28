@@ -9,9 +9,16 @@ class TestSettings:
     """Tests for Settings model validation."""
 
     def test_default_environment_is_development(self):
-        """Default environment should be 'development'."""
-        s = Settings(secret_key="a" * 32)
-        assert s.environment == "development"
+        """Default environment should be 'development' when no env var set."""
+        import os
+        # Temporarily remove ENVIRONMENT to test the actual default
+        env_backup = os.environ.pop("ENVIRONMENT", None)
+        try:
+            s = Settings(secret_key="a" * 32)
+            assert s.environment == "development"
+        finally:
+            if env_backup:
+                os.environ["ENVIRONMENT"] = env_backup
 
     def test_is_production_flag(self):
         """is_production returns True only in production."""
