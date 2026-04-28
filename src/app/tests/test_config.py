@@ -11,6 +11,7 @@ class TestSettings:
     def test_default_environment_is_development(self):
         """Default environment should be 'development' when no env var set."""
         import os
+
         # Temporarily remove ENVIRONMENT to test the actual default
         env_backup = os.environ.pop("ENVIRONMENT", None)
         try:
