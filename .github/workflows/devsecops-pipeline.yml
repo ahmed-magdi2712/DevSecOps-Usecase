@@ -284,37 +284,19 @@ jobs:
           path: reports/
 
       - name: SonarQube Scan with AI CodeFix
-        uses: SonarSource/sonarqube-scan-action@v2
+        uses: SonarSource/sonarqube-scan-action@v7.0.1
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-          SONAR_SCANNER_OPTS: >
-            -Dsonar.ai.suggestion.enabled=true
-            -Dsonar.ai.codefix.enabled=true
-            -Dsonar.issuesReport.html.enabled=true
-            -Dsonar.sourceEncoding=UTF-8
         with:
           args: >
             -Dsonar.projectBaseDir=.
-            -Dsonar.sources=src/app
-            -Dsonar.tests=src/app/tests
-            -Dsonar.python.coverage.reportPaths=reports/coverage.xml
-            -Dsonar.python.xunit.reportPath=reports/junit-results.xml
-            -Dsonar.exclusions=**/tests/**,**/__pycache__/**,**/migrations/**
-            -Dsonar.coverage.exclusions=**/tests/**,**/__pycache__/**,**/test_*.py
-            -Dsonar.cpd.exclusions=**/tests/**
             -Dsonar.scm.revision=${{ github.sha }}
-            -Dsonar.pullrequest.key=${{ github.event.pull_request.number }}
-            -Dsonar.pullrequest.branch=${{ github.head_ref }}
-            -Dsonar.pullrequest.base=${{ github.base_ref }}
-            -Dsonar.working.directory=.sonarqube
 
       - name: SonarQube Quality Gate
-        uses: SonarSource/sonarqube-quality-gate-action@master
+        uses: SonarSource/sonarqube-quality-gate-action@v1
         timeout-minutes: 5
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
       - name: Get AI Fix Suggestions
         if: failure()
@@ -328,7 +310,7 @@ jobs:
           echo "- ✅ AI CodeFix" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ AI-Powered Issue Explanation" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "👉 Review the [SonarQube Dashboard](${{ secrets.SONAR_HOST_URL }}/dashboard?id=${{ github.repository }}) for AI-powered fix suggestions." >> $GITHUB_STEP_SUMMARY
+          echo "👉 Review the [SonarQube Dashboard] >> $GITHUB_STEP_SUMMARY
 
       - name: Upload SonarQube Reports
         uses: actions/upload-artifact@v4
