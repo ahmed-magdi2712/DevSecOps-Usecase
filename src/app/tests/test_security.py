@@ -1,7 +1,6 @@
 """Unit tests for core security utilities."""
 
 import pytest
-from jose import jwt
 
 from src.app.core.security import (
     create_access_token,

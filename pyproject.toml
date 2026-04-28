@@ -24,6 +24,7 @@ ignore = [
     "ANN401",  # Dynamically typed expressions (Any)
     "S101",    # Use of assert (needed in tests)
     "B008",    # Do not perform function calls in default arguments (FastAPI Depends)
+    "S105",    # Possible hardcoded password (false positive for token_type, etc.)
 ]
 
 [tool.ruff.lint.per-file-ignores]

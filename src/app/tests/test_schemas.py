@@ -1,14 +1,13 @@
 """Unit tests for Pydantic schemas validation."""
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from pydantic import ValidationError
 
 from src.app.schemas.schemas import (
     ItemCreate,
-    ItemUpdate,
     Token,
     UserCreate,
     UserResponse,
@@ -114,7 +113,7 @@ class TestUserResponseSchema:
 
     def test_from_attributes(self):
         """UserResponse should be buildable from a dict (model_validate)."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         data = {
             "id": uuid.uuid4(),
             "username": "alice",
