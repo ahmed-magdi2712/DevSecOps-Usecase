@@ -284,7 +284,7 @@ jobs:
           path: reports/
 
       - name: SonarQube Scan with AI CodeFix
-        uses: SonarSource/sonarqube-scan-action@v7.0.1
+        uses: SonarSource/sonarqube-scan-action@v7.1.0
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
