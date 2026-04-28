@@ -217,7 +217,7 @@ jobs:
 
       - name: Generate Coverage Badge
         run: |
-          pip install coverage-badge
+          pip install coverage-badge setuptools
           coverage-badge -o coverage.svg -f
 
       - name: Upload Test Results
