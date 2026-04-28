@@ -22,9 +22,7 @@ def _cache_key(user_id: uuid.UUID) -> str:
     return f"{_CACHE_PREFIX}:{user_id}"
 
 
-async def get_user_by_id(
-    db: AsyncSession, user_id: uuid.UUID
-) -> User | None:
+async def get_user_by_id(db: AsyncSession, user_id: uuid.UUID) -> User | None:
     """Fetch a user by primary-key, with a cache layer."""
     cached = await cache_get(_cache_key(user_id))
     if cached:
@@ -49,9 +47,7 @@ async def get_user_by_email(db: AsyncSession, email: str) -> User | None:
     return result.scalar_one_or_none()
 
 
-async def list_users(
-    db: AsyncSession, *, skip: int = 0, limit: int = 20
-) -> tuple[list[User], int]:
+async def list_users(db: AsyncSession, *, skip: int = 0, limit: int = 20) -> tuple[list[User], int]:
     """Return a paginated list of users with total count."""
     total_result = await db.execute(select(func.count()).select_from(User))
     total = total_result.scalar_one()
@@ -76,9 +72,7 @@ async def create_user(db: AsyncSession, payload: UserCreate) -> User:
     return user
 
 
-async def update_user(
-    db: AsyncSession, user: User, payload: UserUpdate
-) -> User:
+async def update_user(db: AsyncSession, user: User, payload: UserUpdate) -> User:
     """Apply partial updates to an existing user."""
     update_data = payload.model_dump(exclude_none=True)
     if "password" in update_data:
@@ -102,9 +96,7 @@ async def delete_user(db: AsyncSession, user: User) -> None:
     logger.info("user_deactivated", user_id=str(user.id))
 
 
-async def authenticate_user(
-    db: AsyncSession, username: str, password: str
-) -> User | None:
+async def authenticate_user(db: AsyncSession, username: str, password: str) -> User | None:
     """Return the user if credentials are valid, else None."""
     user = await get_user_by_username(db, username)
     if not user:

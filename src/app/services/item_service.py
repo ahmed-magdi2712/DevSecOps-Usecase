@@ -15,9 +15,7 @@ logger = get_logger(__name__)
 
 async def get_item(db: AsyncSession, item_id: int) -> Item | None:
     """Fetch a single item by ID."""
-    result = await db.execute(
-        select(Item).options(selectinload(Item.owner)).where(Item.id == item_id)
-    )
+    result = await db.execute(select(Item).options(selectinload(Item.owner)).where(Item.id == item_id))
     return result.scalar_one_or_none()
 
 
@@ -49,9 +47,7 @@ async def list_items(
     return items, total
 
 
-async def create_item(
-    db: AsyncSession, payload: ItemCreate, owner_id: uuid.UUID
-) -> Item:
+async def create_item(db: AsyncSession, payload: ItemCreate, owner_id: uuid.UUID) -> Item:
     """Create and persist a new item."""
     item = Item(
         title=payload.title,
@@ -66,9 +62,7 @@ async def create_item(
     return item
 
 
-async def update_item(
-    db: AsyncSession, item: Item, payload: ItemUpdate
-) -> Item:
+async def update_item(db: AsyncSession, item: Item, payload: ItemUpdate) -> Item:
     """Apply partial updates to an item."""
     for field, value in payload.model_dump(exclude_none=True).items():
         setattr(item, field, value)

@@ -47,9 +47,7 @@ async def create_user(payload: UserCreate, db: DbSession) -> UserResponse:
 )
 async def list_users(_: SuperUser, db: DbSession, pagination: Pagination) -> PaginatedResponse:
     """Return a paginated list of all users (superuser only)."""
-    users, total = await user_service.list_users(
-        db, skip=pagination.skip, limit=pagination.limit
-    )
+    users, total = await user_service.list_users(db, skip=pagination.skip, limit=pagination.limit)
     return PaginatedResponse(
         total=total,
         page=pagination.page,

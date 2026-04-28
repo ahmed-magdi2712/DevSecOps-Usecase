@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 # ── Token ─────────────────────────────────────────────────────────────────────
 
+
 class Token(BaseModel):
     """JWT token pair returned after successful authentication."""
 
@@ -23,6 +24,7 @@ class TokenData(BaseModel):
 
 
 # ── User ──────────────────────────────────────────────────────────────────────
+
 
 class UserBase(BaseModel):
     """Shared user fields."""
@@ -61,6 +63,7 @@ class UserResponse(UserBase):
 
 # ── Item ──────────────────────────────────────────────────────────────────────
 
+
 class ItemBase(BaseModel):
     """Shared item fields."""
 
@@ -94,6 +97,7 @@ class ItemResponse(ItemBase):
 
 # ── Health ────────────────────────────────────────────────────────────────────
 
+
 class ComponentHealth(BaseModel):
     """Health status of a single dependency."""
 
@@ -113,6 +117,7 @@ class HealthResponse(BaseModel):
 
 # ── Pagination ────────────────────────────────────────────────────────────────
 
+
 class PaginatedResponse(BaseModel):
     """Generic paginated list wrapper."""
 
@@ -123,6 +128,7 @@ class PaginatedResponse(BaseModel):
 
 
 # ── Error ─────────────────────────────────────────────────────────────────────
+
 
 class ErrorDetail(BaseModel):
     """Standardised error response body."""

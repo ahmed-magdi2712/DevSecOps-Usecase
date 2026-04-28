@@ -101,6 +101,7 @@ async def check_db_connection() -> bool:
         engine = get_engine()
         async with engine.connect() as conn:
             from sqlalchemy import text
+
             await conn.execute(text("SELECT 1"))
         return True
     except Exception as exc:

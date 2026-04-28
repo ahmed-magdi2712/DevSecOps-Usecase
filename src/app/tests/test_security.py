@@ -90,12 +90,14 @@ class TestJWTTokens:
     def test_decode_invalid_token_raises(self):
         """Decoding a malformed token should raise JWTError."""
         from jose import JWTError
+
         with pytest.raises(JWTError):
             decode_token("not.a.valid.token")
 
     def test_decode_tampered_token_raises(self):
         """Tampering with the signature should raise JWTError."""
         from jose import JWTError
+
         token = create_access_token("user-1")
         tampered = token[:-5] + "XXXXX"
         with pytest.raises(JWTError):

@@ -10,9 +10,7 @@ from structlog.types import EventDict, Processor
 from src.app.core.config import get_settings
 
 
-def add_app_context(
-    logger: logging.Logger, method_name: str, event_dict: EventDict
-) -> EventDict:
+def add_app_context(logger: logging.Logger, method_name: str, event_dict: EventDict) -> EventDict:
     """Inject application-level context into every log record."""
     settings = get_settings()
     event_dict["app"] = settings.app_name

@@ -66,6 +66,7 @@ async def readiness() -> dict:
     redis_ok = await check_redis_connection()
     if not db_ok or not redis_ok:
         from fastapi import HTTPException, status
+
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Service not ready",
