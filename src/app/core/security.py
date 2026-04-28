@@ -24,14 +24,10 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 
-def create_access_token(
-    subject: str | int, extra_claims: dict[str, Any] | None = None
-) -> str:
+def create_access_token(subject: str | int, extra_claims: dict[str, Any] | None = None) -> str:
     """Create a signed JWT access token."""
     settings = get_settings()
-    expire = datetime.now(UTC) + timedelta(
-        minutes=settings.access_token_expire_minutes
-    )
+    expire = datetime.now(UTC) + timedelta(minutes=settings.access_token_expire_minutes)
     payload: dict[str, Any] = {
         "sub": str(subject),
         "exp": expire,
@@ -47,9 +43,7 @@ def create_access_token(
 def create_refresh_token(subject: str | int) -> str:
     """Create a signed JWT refresh token."""
     settings = get_settings()
-    expire = datetime.now(UTC) + timedelta(
-        days=settings.refresh_token_expire_days
-    )
+    expire = datetime.now(UTC) + timedelta(days=settings.refresh_token_expire_days)
     payload: dict[str, Any] = {
         "sub": str(subject),
         "exp": expire,

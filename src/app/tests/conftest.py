@@ -33,6 +33,7 @@ def get_test_settings() -> Settings:
 
 # ── Engine & session fixtures ─────────────────────────────────────────────────
 
+
 @pytest.fixture(scope="session")
 def event_loop():
     """Session-scoped event loop."""
@@ -65,6 +66,7 @@ async def db_session(test_engine) -> AsyncGenerator[AsyncSession, None]:
 
 # ── App / HTTP client fixtures ─────────────────────────────────────────────────
 
+
 @pytest.fixture
 def settings_override():
     """Patch get_settings to return test settings."""
@@ -78,15 +80,14 @@ async def async_client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, 
     app.dependency_overrides[get_db] = lambda: db_session
     app.dependency_overrides[get_settings] = get_test_settings
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         yield client
 
     app.dependency_overrides.clear()
 
 
 # ── Data factory fixtures ─────────────────────────────────────────────────────
+
 
 @pytest_asyncio.fixture
 async def test_user(db_session: AsyncSession) -> User:

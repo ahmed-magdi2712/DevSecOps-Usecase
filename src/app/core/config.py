@@ -21,9 +21,7 @@ class Settings(BaseSettings):
     app_name: str = Field(default="SecureApp", description="Application name")
     app_version: str = Field(default="1.0.0")
     debug: bool = Field(default=False)
-    environment: Literal["development", "testing", "staging", "production"] = Field(
-        default="development"
-    )
+    environment: Literal["development", "testing", "staging", "production"] = Field(default="development")
     secret_key: str = Field(
         default="change-me-in-production-use-a-long-random-string-here",
         min_length=32,
@@ -36,9 +34,7 @@ class Settings(BaseSettings):
     log_level: str = Field(default="info")
 
     # ── Database ──────────────────────────────────────────────────────────────
-    database_url: str = Field(
-        default="postgresql://app_user:app_password@localhost:5432/app_db"
-    )
+    database_url: str = Field(default="postgresql://app_user:app_password@localhost:5432/app_db")
     db_pool_size: int = Field(default=5, ge=1, le=50)
     db_max_overflow: int = Field(default=10, ge=0)
     db_pool_timeout: int = Field(default=30, ge=1)

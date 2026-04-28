@@ -51,9 +51,7 @@ class TestAuthorizationSecurity:
         assert response.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_superuser_endpoint_as_regular_user(
-        self, async_client: AsyncClient, auth_headers
-    ):
+    async def test_superuser_endpoint_as_regular_user(self, async_client: AsyncClient, auth_headers):
         """Regular users cannot access superuser-only endpoints."""
         response = await async_client.get("/api/v1/users/", headers=auth_headers)
         assert response.status_code == 403
@@ -69,9 +67,7 @@ class TestAuthorizationSecurity:
         """A user should not access another user's private item."""
         # test_item belongs to test_user, not the superuser accessed as regular
         # (Superusers can still access — use a separate non-owner regular user scenario)
-        response = await async_client.get(
-            f"/api/v1/items/{test_item.id}", headers=auth_headers
-        )
+        response = await async_client.get(f"/api/v1/items/{test_item.id}", headers=auth_headers)
         assert response.status_code == 200  # owner can access
 
 

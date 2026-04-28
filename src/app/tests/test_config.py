@@ -28,12 +28,14 @@ class TestSettings:
     def test_invalid_environment_raises(self):
         """An invalid environment string should raise a ValidationError."""
         from pydantic import ValidationError
+
         with pytest.raises(ValidationError):
             Settings(environment="invalid_env", secret_key="a" * 32)
 
     def test_port_bounds(self):
         """Port must be within valid TCP range."""
         from pydantic import ValidationError
+
         with pytest.raises(ValidationError):
             Settings(secret_key="a" * 32, port=0)
         with pytest.raises(ValidationError):
@@ -42,6 +44,7 @@ class TestSettings:
     def test_empty_database_url_raises(self):
         """Empty DATABASE_URL should raise a validation error."""
         from pydantic import ValidationError
+
         with pytest.raises(ValidationError):
             Settings(secret_key="a" * 32, database_url="")
 
