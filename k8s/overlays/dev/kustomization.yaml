@@ -1,0 +1,43 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: secureapp-dev
+
+resources:
+  - ../../base
+
+namePrefix: dev-
+
+patches:
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: app
+      spec:
+        replicas: 1
+        template:
+          spec:
+            containers:
+              - name: api
+                resources:
+                  requests:
+                    cpu: "50m"
+                    memory: "128Mi"
+                  limits:
+                    cpu: "200m"
+                    memory: "256Mi"
+                env:
+                  - name: ENVIRONMENT
+                    value: "development"
+                  - name: LOG_LEVEL
+                    value: "debug"
+
+configMapGenerator:
+  - name: secureapp-config
+    behavior: merge
+    literals:
+      - ENVIRONMENT=development
+      - LOG_LEVEL=debug
+      - WORKERS=1

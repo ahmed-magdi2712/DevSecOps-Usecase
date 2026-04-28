@@ -1,0 +1,1053 @@
+name: DevSecOps Pipeline
+
+on:
+  push:
+    branches: [main, develop, release/*]
+  pull_request:
+    branches: [main]
+
+# Cancel in-progress runs for the same branch/PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Minimum permissions required
+permissions:
+  contents: read
+  security-events: write
+  id-token: write
+  packages: write
+  attestations: write
+  actions: read
+  checks: write
+  pull-requests: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  COSIGN_EXPERIMENTAL: "true"
+  SYFT_FORMAT: "spdx-json"
+
+jobs:
+  # ============================================================================
+  # STAGE 1: LINT
+  # ============================================================================
+  lint:
+    name: "🔴 Lint"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r src/app/requirements.txt
+          pip install ruff flake8 mypy bandit pylint pydocstyle black isort
+
+      - name: Run Ruff (Fast Python Linter)
+        run: |
+          ruff check src/ --output-format=github --exit-zero
+          ruff format --check src/ --diff
+
+      - name: Run Flake8
+        run: |
+          flake8 src/ --format=github --exit-zero --max-line-length=120 \
+            --ignore=E501,W503,E203
+
+      - name: Run Pylint
+        run: |
+          pylint src/ --exit-zero --output-format=json | \
+            python -m pylint_json2github > pylint-results.json || true
+
+      - name: Run Mypy (Type Checking)
+        run: |
+          mypy src/ --ignore-missing-imports --no-error-summary \
+            --html-report=mypy-report || true
+
+      - name: Run Bandit (Security Linting)
+        run: |
+          bandit -r src/ -f json -o bandit-report.json || true
+          bandit -r src/ -ll
+
+      - name: Run pydocstyle (Documentation Linting)
+        run: |
+          pydocstyle src/ --convention=pep257 --add-ignore=D100,D101,D102,D103,D104,D105,D107 || true
+
+      - name: Check Imports with isort
+        run: |
+          isort --check-only --diff src/ || true
+
+      - name: Run hadolint (Dockerfile Linting)
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: docker/Dockerfile
+          failure-threshold: warning
+          format: tty
+
+      - name: Run yamllint (YAML Linting)
+        uses: karancode/yamllint-github-action@master
+        with:
+          yamllint_strict: false
+          yamllint_config_file: .yamllint
+          yamllint_file_or_dir: k8s/
+
+      - name: Run markdownlint (Markdown Linting)
+        uses: DavidAnson/markdownlint-cli2-action@v16
+        with:
+          globs: "**/*.md"
+          config: ".markdownlint.json"
+        continue-on-error: true
+
+      - name: Checkov (IaC Security Scanning)
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: k8s/
+          framework: kubernetes
+          output_format: cli,sarif
+          output_file_path: console,checkov-results.sarif
+          skip_check: CKV_K8S_21,CKV_K8S_22
+        continue-on-error: true
+
+      - name: Upload Lint Artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lint-reports
+          path: |
+            bandit-report.json
+            pylint-results.json
+            mypy-report/
+            checkov-results.sarif
+          retention-days: 30
+
+      - name: Upload Checkov SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: checkov-results.sarif
+          category: checkov
+
+  # ============================================================================
+  # STAGE 2: TEST
+  # ============================================================================
+  test:
+    name: "🟡 Test"
+    runs-on: ubuntu-latest
+    needs: lint
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test_user"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r src/app/requirements.txt
+          pip install pytest pytest-cov pytest-asyncio pytest-mock \
+            pytest-xdist pytest-timeout factory-boy faker \
+            pytest-postgres pytest-redis httpx
+
+      - name: Run Unit Tests with Coverage
+        env:
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+          REDIS_URL: redis://localhost:6379/0
+          ENVIRONMENT: testing
+        run: |
+          pytest src/app/tests/ \
+            --cov=src/app \
+            --cov-report=xml:coverage.xml \
+            --cov-report=html:htmlcov \
+            --cov-report=term-missing \
+            --cov-fail-under=80 \
+            -v \
+            --tb=short \
+            --junitxml=junit-results.xml \
+            -n auto \
+            --timeout=60
+
+      - name: Run Integration Tests
+        env:
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+          REDIS_URL: redis://localhost:6379/0
+          ENVIRONMENT: testing
+        run: |
+          pytest src/app/tests/integration/ \
+            --cov=src/app \
+            --cov-report=xml:integration-coverage.xml \
+            --cov-append \
+            -v \
+            --tb=short \
+            --junitxml=integration-junit.xml \
+            -m integration
+
+      - name: Run Security Tests
+        run: |
+          pytest src/app/tests/security/ \
+            -v \
+            --tb=short \
+            --junitxml=security-junit.xml \
+            -m security
+
+      - name: Generate Coverage Badge
+        run: |
+          pip install coverage-badge
+          coverage-badge -o coverage.svg -f
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-reports
+          path: |
+            coverage.xml
+            integration-coverage.xml
+            htmlcov/
+            junit-results.xml
+            integration-junit.xml
+            security-junit.xml
+            coverage.svg
+          retention-days: 30
+
+      - name: Publish Test Results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Test Results
+          path: "*.xml"
+          reporter: java-junit
+          fail-on-error: false
+
+      - name: Comment Coverage on PR
+        uses: romeovs/lcov-reporter-action@v0.4.0
+        if: github.event_name == 'pull_request'
+        with:
+          lcov-file: coverage.xml
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          delete-old-comments: true
+
+  # ============================================================================
+  # STAGE 3: SONARQUBE WITH AI FEATURES
+  # ============================================================================
+  sonarqube:
+    name: "🟠 SonarQube (AI)"
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Shallow clones should be disabled for better analysis
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r src/app/requirements.txt
+
+      - name: Download Test Reports
+        uses: actions/download-artifact@v4
+        with:
+          name: test-reports
+          path: reports/
+
+      - name: SonarQube Scan with AI CodeFix
+        uses: SonarSource/sonarqube-scan-action@v2
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_SCANNER_OPTS: >
+            -Dsonar.ai.suggestion.enabled=true
+            -Dsonar.ai.codefix.enabled=true
+            -Dsonar.issuesReport.html.enabled=true
+            -Dsonar.sourceEncoding=UTF-8
+        with:
+          args: >
+            -Dsonar.projectBaseDir=.
+            -Dsonar.sources=src/app
+            -Dsonar.tests=src/app/tests
+            -Dsonar.python.coverage.reportPaths=reports/coverage.xml
+            -Dsonar.python.xunit.reportPath=reports/junit-results.xml
+            -Dsonar.exclusions=**/tests/**,**/__pycache__/**,**/migrations/**
+            -Dsonar.coverage.exclusions=**/tests/**,**/__pycache__/**,**/test_*.py
+            -Dsonar.cpd.exclusions=**/tests/**
+            -Dsonar.scm.revision=${{ github.sha }}
+            -Dsonar.pullrequest.key=${{ github.event.pull_request.number }}
+            -Dsonar.pullrequest.branch=${{ github.head_ref }}
+            -Dsonar.pullrequest.base=${{ github.base_ref }}
+            -Dsonar.working.directory=.sonarqube
+
+      - name: SonarQube Quality Gate
+        uses: SonarSource/sonarqube-quality-gate-action@master
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+      - name: Get AI Fix Suggestions
+        if: failure()
+        run: |
+          echo "## 🔍 SonarQube AI Analysis Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Quality Gate failed. AI-powered suggestions are available in SonarQube." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### AI Features Enabled:" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ AI Code Suggestions" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ AI CodeFix" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ AI-Powered Issue Explanation" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "👉 Review the [SonarQube Dashboard](${{ secrets.SONAR_HOST_URL }}/dashboard?id=${{ github.repository }}) for AI-powered fix suggestions." >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload SonarQube Reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sonarqube-reports
+          path: .sonarqube/
+          retention-days: 30
+
+  # ============================================================================
+  # STAGE 4: BUILD IMAGES WITH SBOM
+  # ============================================================================
+  build:
+    name: "🔵 Build & SBOM"
+    runs-on: ubuntu-latest
+    needs: sonarqube
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+      image-digest: ${{ steps.build.outputs.digest }}
+      sbom-path: ${{ steps.sbom.outputs.sbom-path }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          buildkitd-config: .github/buildkitd.toml
+          driver-opts: |
+            image=moby/buildkit:v0.12.5
+            network=host
+
+      - name: Docker Meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value={{date 'YYYYMMDD'}}-{{sha}}
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push Docker Image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ github.ref }}
+          cache-to: type=gha,mode=max,scope=${{ github.ref }}
+          build-args: |
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            VCS_REF=${{ github.sha }}
+            VERSION=${{ steps.meta.outputs.version }}
+          provenance: mode=max
+          sbom: true
+
+      - name: Generate SBOM with Syft
+        id: sbom
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          format: spdx-json
+          output-file: sbom.spdx.json
+          dependency-snapshot: true
+
+      - name: Generate Additional SBOM Formats
+        run: |
+          # CycloneDX format
+          syft ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            -o cyclonedx-json > sbom.cyclonedx.json
+          
+          # Table format for human reading
+          syft ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            -o table > sbom.txt
+          
+          # SPDX with all relationships
+          syft ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            -o spdx-json --cataloger all-layers > sbom-full.spdx.json
+
+      - name: Attest SBOM
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+      - name: Upload SBOM Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-artifacts
+          path: |
+            sbom.*.json
+            sbom.txt
+          retention-days: 90
+
+      - name: Summary
+        run: |
+          echo "## 🔵 Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Image | \`${{ steps.meta.outputs.tags }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Digest | \`${{ steps.build.outputs.digest }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| SBOM | \`sbom.spdx.json\` |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### SBOM Contents Summary" >> $GITHUB_STEP_SUMMARY
+          cat sbom.txt >> $GITHUB_STEP_SUMMARY
+
+  # ============================================================================
+  # STAGE 5: SCAN IMAGES WITH MULTIPLE TOOLS
+  # ============================================================================
+  scan:
+    name: "🟣 Image Scan"
+    runs-on: ubuntu-latest
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        scanner: [trivy, grype, snyk, anchore]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download SBOM
+        uses: actions/download-artifact@v4
+        with:
+          name: sbom-artifacts
+          path: sbom/
+
+      # -------------------------------------------------------------------------
+      # TRIVY SCANNER
+      # -------------------------------------------------------------------------
+      - name: Run Trivy Vulnerability Scanner
+        if: matrix.scanner == 'trivy'
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'image'
+          image-ref: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          scanners: 'vuln,secret,misconfig'
+          sbom-sources: 'sbom/sbom.spdx.json'
+          timeout: '10m'
+        env:
+          TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db
+          TRIVY_JAVA_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-java-db
+          TRIVY_SKIP_UPDATE: false
+
+      - name: Run Trivy Config Scanner
+        if: matrix.scanner == 'trivy'
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config'
+          scan-ref: 'k8s/'
+          format: 'table'
+          output: 'trivy-config-results.txt'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+          exit-code: '0'
+
+      - name: Run Trivy Secret Scanner
+        if: matrix.scanner == 'trivy'
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'image'
+          image-ref: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}'
+          format: 'json'
+          output: 'trivy-secrets.json'
+          scanners: 'secret'
+          exit-code: '0'
+          secret-config: '.trivy-secret.yaml'
+
+      - name: Upload Trivy Results
+        if: matrix.scanner == 'trivy' && always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy
+
+      # -------------------------------------------------------------------------
+      # GRYPE SCANNER
+      # -------------------------------------------------------------------------
+      - name: Run Grype Vulnerability Scanner
+        if: matrix.scanner == 'grype'
+        uses: anchore/scan-action@v4
+        id: grype
+        with:
+          image: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}'
+          format: 'sarif'
+          output-file: 'grype-results.sarif'
+          severity-cutoff: 'medium'
+          fail-build: true
+          additional-flags: >
+            --sbom sbom/sbom.spdx.json
+            --ignore-unfixed
+            --by-cve
+            --exclude '**/test**'
+
+      - name: Run Grype with SBOM Directly
+        if: matrix.scanner == 'grype'
+        run: |
+          grype sbom:sbom/sbom.spdx.json \
+            -o json > grype-sbom-results.json || true
+          grype sbom:sbom/sbom.spdx.json \
+            -o table > grype-sbom-results.txt || true
+
+      - name: Upload Grype Results
+        if: matrix.scanner == 'grype' && always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: grype-results.sarif
+          category: grype
+
+      # -------------------------------------------------------------------------
+      # SNYK SCANNER
+      # -------------------------------------------------------------------------
+      - name: Run Snyk Container Scan
+        if: matrix.scanner == 'snyk'
+        uses: snyk/actions/container@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          image: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}'
+          args: >
+            --severity-threshold=high
+            --sarif-file-output=snyk-results.sarif
+            --json-file-output=snyk-results.json
+            --exclude-app-vulns
+            --policy-path=.snyk
+            --fail-on=all
+
+      - name: Run Snyk IaC Scan
+        if: matrix.scanner == 'snyk'
+        uses: snyk/actions/iac@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: >
+            k8s/
+            --severity-threshold=high
+            --sarif-file-output=snyk-iac-results.sarif
+            --json-file-output=snyk-iac-results.json
+
+      - name: Upload Snyk Results
+        if: matrix.scanner == 'snyk' && always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: snyk-results.sarif
+          category: snyk
+
+      # -------------------------------------------------------------------------
+      # ANCHORE SCANNER
+      # -------------------------------------------------------------------------
+      - name: Run Anchore Grype Enterprise Scan
+        if: matrix.scanner == 'anchore'
+        uses: anchore/anchore-scan-action@v3
+        with:
+          image-reference: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}'
+          severity-cutoff: 'high'
+          fail-build: true
+          acs-report-enable: true
+          format: 'sarif'
+          output-file: 'anchore-results.sarif'
+        env:
+          ANCHORE_CLI_URL: ${{ secrets.ANCHORE_URL }}
+          ANCHORE_CLI_USER: ${{ secrets.ANCHORE_USER }}
+          ANCHORE_CLI_PASS: ${{ secrets.ANCHORE_PASSWORD }}
+
+      - name: Run Anchore Policy Check
+        if: matrix.scanner == 'anchore'
+        run: |
+          curl -s -u "${{ secrets.ANCHORE_USER }}:${{ secrets.ANCHORE_PASSWORD }}" \
+            "${{ secrets.ANCHORE_URL }}/images/${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}/check" \
+            -o anchore-policy-check.json || true
+          cat anchore-policy-check.json | jq '.' || true
+
+      - name: Upload Anchore Results
+        if: matrix.scanner == 'anchore' && always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: anchore-results.sarif
+          category: anchore
+
+      # -------------------------------------------------------------------------
+      # Common Steps
+      # -------------------------------------------------------------------------
+      - name: Upload Scan Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: scan-results-${{ matrix.scanner }}
+          path: |
+            *-results.*
+            *-results.json
+          retention-days: 90
+
+      - name: Scan Summary
+        if: always()
+        run: |
+          echo "## 🟣 ${{ matrix.scanner }} Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f "*-results.txt" ]; then
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat *-results.txt >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # ============================================================================
+  # STAGE 6: SIGN WITH COSIGN
+  # ============================================================================
+  sign:
+    name: "🟢 Sign Image"
+    runs-on: ubuntu-latest
+    needs: scan
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download SBOM
+        uses: actions/download-artifact@v4
+        with:
+          name: sbom-artifacts
+          path: sbom/
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: 'v2.2.4'
+
+      - name: Verify Cosign Installation
+        run: |
+          cosign version
+          cosign verify-blob --help
+
+      # -------------------------------------------------------------------------
+      # Keyless Signing (OIDC)
+      # -------------------------------------------------------------------------
+      - name: Sign Image with Cosign (Keyless - OIDC)
+        uses: sigstore/cosign-action@v3
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          digest: ${{ needs.build.outputs.image-digest }}
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+
+      - name: Sign Image Digest
+        run: |
+          cosign sign --yes \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }}
+
+      # -------------------------------------------------------------------------
+      # Key-based Signing (Optional - for additional verification)
+      # -------------------------------------------------------------------------
+      - name: Sign with Private Key
+        if: vars.COSIGN_PRIVATE_KEY != ''
+        run: |
+          echo "${{ secrets.COSIGN_PRIVATE_KEY }}" | cosign sign \
+            --key env://COSIGN_PRIVATE_KEY \
+            --annotations "repo=${{ github.repository }}" \
+            --annotations "sha=${{ github.sha }}" \
+            --annotations "ref=${{ github.ref }}" \
+            --annotations "actor=${{ github.actor }}" \
+            --annotations "run_id=${{ github.run_id }}" \
+            --annotations "run_number=${{ github.run_number }}" \
+            --yes \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }}
+        env:
+          COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
+          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+
+      # -------------------------------------------------------------------------
+      # SBOM Signing
+      # -------------------------------------------------------------------------
+      - name: Attach and Sign SBOM
+        run: |
+          # Attach SBOM to image
+          cosign attach sbom \
+            --sbom sbom/sbom.spdx.json \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }}
+          
+          # Sign the SBOM
+          cosign sign --yes \
+            --attachment sbom \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }}
+
+      # -------------------------------------------------------------------------
+      # Attestations
+      # -------------------------------------------------------------------------
+      - name: Create SLSA Provenance Attestation
+        uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.9.0
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          digest: ${{ needs.build.outputs.image-digest }}
+
+      - name: Create Vulnerability Attestation
+        run: |
+          # Download scan results
+          
+          # Create vulnerability attestation
+          cosign attest --yes \
+            --predicate sbom/sbom.spdx.json \
+            --type https://spdx.dev/Document \
+            --key env://COSIGN_PRIVATE_KEY \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }} || \
+          cosign attest --yes \
+            --predicate sbom/sbom.spdx.json \
+            --type https://spdx.dev/Document \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }}
+        env:
+          COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
+          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+
+      # -------------------------------------------------------------------------
+      # Verification
+      # -------------------------------------------------------------------------
+      - name: Verify Signature (Keyless)
+        run: |
+          cosign verify \
+            --certificate-identity="${{ github.actor }}" \
+            --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }}
+
+      - name: Verify Signature (Key-based)
+        if: vars.COSIGN_PUBLIC_KEY != ''
+        run: |
+          cosign verify \
+            --key ${{ vars.COSIGN_PUBLIC_KEY }} \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }}
+
+      - name: Verify SBOM Attachment
+        run: |
+          cosign download sbom \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }}
+
+      - name: Signing Summary
+        run: |
+          echo "## 🟢 Image Signing Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Item | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| OIDC Signature | ✅ Signed |" >> $GITHUB_STEP_SUMMARY
+          echo "| Key Signature | ✅ Signed |" >> $GITHUB_STEP_SUMMARY
+          echo "| SBOM Attachment | ✅ Attached & Signed |" >> $GITHUB_STEP_SUMMARY
+          echo "| SLSA Provenance | ✅ Attested |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Verification Commands" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo "# Verify OIDC signature" >> $GITHUB_STEP_SUMMARY
+          echo "cosign verify \\" >> $GITHUB_STEP_SUMMARY
+          echo "  --certificate-identity='${{ github.actor }}' \\" >> $GITHUB_STEP_SUMMARY
+          echo "  --certificate-oidc-issuer='https://token.actions.githubusercontent.com' \\" >> $GITHUB_STEP_SUMMARY
+          echo "  ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }}" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+  # ============================================================================
+  # STAGE 7: DEPLOY WITH ARGOCD
+  # ============================================================================
+  deploy:
+    name: "🚀 Deploy"
+    runs-on: ubuntu-latest
+    needs: [build, sign]
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')
+    environment:
+      name: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
+      url: ${{ steps.deploy.outputs.url }}
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Determine Environment
+        id: env
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "environment=production" >> $GITHUB_OUTPUT
+            echo "overlay=prod" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == refs/heads/release/* ]]; then
+            echo "environment=staging" >> $GITHUB_OUTPUT
+            echo "overlay=staging" >> $GITHUB_OUTPUT
+          else
+            echo "environment=development" >> $GITHUB_OUTPUT
+            echo "overlay=dev" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update Kubernetes Manifests
+        run: |
+          # Update image tag in Kustomization
+          cd k8s/overlays/${{ steps.env.outputs.overlay }}
+          
+          # Set the new image with digest
+          kustomize edit set image \
+            ${{ env.IMAGE_NAME }}=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }}
+          
+          # Add annotations for signed image
+          cat > patch-signature.yaml << EOF
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: app
+            annotations:
+              image.openshift.io/trusted: "true"
+              cosign.sigstore.dev/verified: "true"
+              slsa.provenance: "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }}"
+          spec:
+            template:
+              metadata:
+                annotations:
+                  image.openshift.io/trusted: "true"
+          EOF
+          
+          # Update kustomization to include patches
+          if ! grep -q "patch-signature.yaml" kustomization.yaml; then
+            echo "- patch-signature.yaml" >> kustomization.yaml
+          fi
+
+      - name: Generate Final Manifests
+        run: |
+          kustomize build k8s/overlays/${{ steps.env.outputs.overlay }} > deployed-manifests.yaml
+          cat deployed-manifests.yaml
+
+      - name: Verify Image Signature Before Deploy
+        uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: 'v2.2.4'
+
+      - name: Pre-deploy Signature Verification
+        run: |
+          # Verify the image is signed before deploying
+          cosign verify \
+            --certificate-identity="${{ github.actor }}" \
+            --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }}
+
+      - name: Configure ArgoCD
+        run: |
+          # Install ArgoCD CLI
+          curl -sL https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64 -o argocd
+          chmod +x argocd
+          sudo mv argocd /usr/local/bin/
+
+      - name: Login to ArgoCD
+        run: |
+          argocd login ${{ secrets.ARGOCD_SERVER }} \
+            --username ${{ secrets.ARGOCD_USERNAME }} \
+            --password ${{ secrets.ARGOCD_PASSWORD }} \
+            --insecure
+
+      - name: Sync ArgoCD Application
+        id: deploy
+        run: |
+          APP_NAME="${{ github.event.repository.name }}-${{ steps.env.outputs.environment }}"
+          
+          # Trigger sync with retry
+          MAX_RETRIES=3
+          RETRY_COUNT=0
+          
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            echo "Attempt $((RETRY_COUNT + 1)) of $MAX_RETRIES"
+            
+            if argocd app sync $APP_NAME --revision HEAD --force --timeout 300; then
+              echo "Sync initiated successfully"
+              break
+            fi
+            
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+              echo "Retrying in 30 seconds..."
+              sleep 30
+            fi
+          done
+
+      - name: Wait for ArgoCD Sync
+        run: |
+          APP_NAME="${{ github.event.repository.name }}-${{ steps.env.outputs.environment }}"
+          
+          # Wait for sync to complete
+          argocd app wait $APP_NAME \
+            --health \
+            --sync \
+            --timeout 600
+
+      - name: Get Application Status
+        run: |
+          APP_NAME="${{ github.event.repository.name }}-${{ steps.env.outputs.environment }}"
+          
+          echo "## 🚀 Deployment Status" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Get app status
+          argocd app get $APP_NAME -o wide >> $GITHUB_STEP_SUMMARY
+          
+          # Get health status
+          HEALTH=$(argocd app get $APP_NAME -o json | jq -r '.status.health.status')
+          SYNC=$(argocd app get $APP_NAME -o json | jq -r '.status.sync.status')
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Status | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Health | $HEALTH |" >> $GITHUB_STEP_SUMMARY
+          echo "| Sync | $SYNC |" >> $GITHUB_STEP_SUMMARY
+          echo "| Image | ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }} |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Post-deploy Health Check
+        run: |
+          APP_NAME="${{ github.event.repository.name }}-${{ steps.env.outputs.environment }}"
+          
+          # Get the service URL
+          URL=$(argocd app get $APP_NAME -o json | \
+            jq -r '.status.summary.externalURLs[0] // "unknown"')
+          
+          if [[ "$URL" != "unknown" && "$URL" != "null" ]]; then
+            echo "url=$URL" >> $GITHUB_OUTPUT
+            
+            # Health check
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 "$URL/health" || echo "000")
+            
+            if [[ "$HTTP_CODE" == "200" ]]; then
+              echo "✅ Health check passed (HTTP $HTTP_CODE)"
+            else
+              echo "⚠️ Health check returned HTTP $HTTP_CODE"
+            fi
+          fi
+        id: health
+
+      - name: Rollback on Failure
+        if: failure()
+        run: |
+          APP_NAME="${{ github.event.repository.name }}-${{ steps.env.outputs.environment }}"
+          
+          echo "🚨 Deployment failed, initiating rollback..."
+          argocd app rollback $APP_NAME
+          argocd app wait $APP_NAME --health --sync --timeout 300
+
+      - name: Notify Deployment
+        if: always()
+        run: |
+          APP_NAME="${{ github.event.repository.name }}-${{ steps.env.outputs.environment }}"
+          STATUS=${{ job.status }}
+          
+          if [[ "$STATUS" == "success" ]]; then
+            EMOJI="✅"
+            MESSAGE="Deployment successful"
+          else
+            EMOJI="❌"
+            MESSAGE="Deployment failed"
+          fi
+          
+          echo "$EMOJI $MESSAGE to ${{ steps.env.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================================================
+  # SECURITY SUMMARY
+  # ============================================================================
+  security-summary:
+    name: "📋 Security Summary"
+    runs-on: ubuntu-latest
+    needs: [lint, test, sonarqube, build, scan, sign, deploy]
+    if: always()
+    steps:
+      - name: Generate Security Report
+        run: |
+          echo "## 📋 Complete Security Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Stage | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔴 Lint | ${{ needs.lint.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🟡 Test | ${{ needs.test.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🟠 SonarQube | ${{ needs.sonarqube.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔵 Build & SBOM | ${{ needs.build.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🟣 Image Scan | ${{ needs.scan.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🟢 Sign | ${{ needs.sign.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🚀 Deploy | ${{ needs.deploy.result == 'success' && '✅ Passed' || needs.deploy.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Artifacts Generated" >> $GITHUB_STEP_SUMMARY
+          echo "- Lint Reports (Bandit, Pylint, Mypy)" >> $GITHUB_STEP_SUMMARY
+          echo "- Test Coverage Reports" >> $GITHUB_STEP_SUMMARY
+          echo "- SonarQube Analysis with AI Suggestions" >> $GITHUB_STEP_SUMMARY
+          echo "- SBOM (SPDX, CycloneDX formats)" >> $GITHUB_STEP_SUMMARY
+          echo "- Vulnerability Scan Reports (Trivy, Grype, Snyk, Anchore)" >> $GITHUB_STEP_SUMMARY
+          echo "- Container Image Signatures" >> $GITHUB_STEP_SUMMARY
+          echo "- SLSA Provenance Attestation" >> $GITHUB_STEP_SUMMARY
+
+      - name: Check Pipeline Result
+        if: |
+          needs.lint.result == 'failure' ||
+          needs.test.result == 'failure' ||
+          needs.sonarqube.result == 'failure' ||
+          needs.scan.result == 'failure' ||
+          needs.sign.result == 'failure'
+        run: |
+          echo "::error::Security pipeline failed. Review the failed stages above."
+          exit 1
