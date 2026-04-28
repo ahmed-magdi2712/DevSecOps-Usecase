@@ -746,12 +746,6 @@ jobs:
       # -------------------------------------------------------------------------
       # Attestations
       # -------------------------------------------------------------------------
-      - name: Create SLSA Provenance Attestation
-        uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.9.0
-        with:
-          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          digest: ${{ needs.build.outputs.image-digest }}
-
       - name: Create Vulnerability Attestation
         run: |
           # Download scan results
