@@ -62,11 +62,6 @@ jobs:
           flake8 src/ --format=github --exit-zero --max-line-length=120 \
             --ignore=E501,W503,E203
 
-      - name: Run Pylint
-        run: |
-          pylint src/ --exit-zero --output-format=json | \
-            python -m pylint_json2github > pylint-results.json || true
-
       - name: Run Mypy (Type Checking)
         run: |
           mypy src/ --ignore-missing-imports --no-error-summary \

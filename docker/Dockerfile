@@ -1,32 +1,30 @@
-# syntax=docker/dockerfile:1.6
+# syntax=docker/dockerfile:1.7
 # ============================================================================
-# Stage 1 – Dependencies (cached layer)
+# Stage 1 – Builder (install dependencies)
 # ============================================================================
-FROM python:3.12-slim AS deps
+# Note: gcc is a build-time dependency only - not included in final image
+# Version pinning ensures reproducible builds
+FROM python:3.12-slim-bookworm AS builder
 
-# Build-time labels
 ARG BUILD_DATE
 ARG VCS_REF
 ARG VERSION
 
-WORKDIR /deps
+WORKDIR /build
 
-# Install build tools needed for native extensions, then clean up
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        gcc \
-        libpq-dev \
+        gcc=4:13.2.0-23 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY src/app/requirements.txt .
 
-# Install to a prefix so we can copy only the site-packages in the next stage
-RUN pip install --no-cache-dir --upgrade pip \
+RUN pip install --no-cache-dir --upgrade pip==25.0 \
     && pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 # ============================================================================
-# Stage 2 – Runtime image (minimal attack surface)
+# Stage 2 – Security runtime (distroless-inspired minimal image)
 # ============================================================================
-FROM python:3.12-slim AS runtime
+FROM gcr.io/distroless/python3-debian12:nonroot AS runtime
 
 ARG BUILD_DATE
 ARG VCS_REF
@@ -38,51 +36,35 @@ LABEL org.opencontainers.image.title="SecureApp" \
       org.opencontainers.image.created="${BUILD_DATE}" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.source="https://github.com/${GITHUB_REPOSITORY}" \
-      org.opencontainers.image.licenses="MIT"
-
-# Runtime dependencies only (libpq for asyncpg)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        libpq5 \
-        curl \
-    && rm -rf /var/lib/apt/lists/* \
-    && apt-get clean
-
-# Create a non-root user
-RUN groupadd --gid 1001 appgroup \
-    && useradd --uid 1001 --gid appgroup --shell /bin/bash \
-       --no-create-home appuser
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.vendor="DevSecOps POC" \
+      org.opencontainers.image.authors="DevSecOps Team" \
+      org.opencontainers.image.ref.name="main"
 
 WORKDIR /app
 
-# Copy installed packages from the deps stage
-COPY --from=deps /install /usr/local
+COPY --from=builder /install /usr/local
 
-# Copy application source
-COPY src/app/ ./src/app/
-
-# Set correct ownership
-RUN chown -R appuser:appgroup /app
-
-# Switch to non-root user
-USER appuser
-
-# Expose the application port
-EXPOSE 8000
+COPY --chown=nonroot:nonroot src/app/ ./src/app/
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app \
-    PORT=8000
+    PORT=8000 \
+    PYTHONFAULTHANDLER=1 \
+    PYTHONHASHSEED=random
 
-# Health check used by Docker and Kubernetes
+USER nonroot
+
+EXPOSE 8000
+
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
-    CMD curl -f http://localhost:8000/api/v1/health/live || exit 1
+    CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health/live')"]
 
-# Run with Uvicorn; adjust workers via WORKERS env var
-CMD ["sh", "-c", "uvicorn src.app.main:app \
-      --host 0.0.0.0 \
-      --port ${PORT} \
-      --workers ${WORKERS:-2} \
-      --log-level ${LOG_LEVEL:-info} \
-      --proxy-headers \
-      --forwarded-allow-ips='*'"]
+CMD ["python", "-m", "uvicorn", "src.app.main:app", \
+     "--host", "127.0.0.1", \
+     "--port", "${PORT}", \
+     "--workers", "${WORKERS:-1}", \
+     "--log-level", "${LOG_LEVEL:-info}", \
+     "--proxy-headers", \
+     "--forwarded-allow-ips=*"]
