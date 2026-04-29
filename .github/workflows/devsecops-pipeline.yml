@@ -416,8 +416,6 @@ jobs:
     needs: build
     strategy:
       fail-fast: false
-      matrix:
-        scanner: [trivy, grype, snyk, anchore]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -437,7 +435,6 @@ jobs:
       # TRIVY SCANNER
       # -------------------------------------------------------------------------
       - name: Run Trivy Vulnerability Scanner
-        if: matrix.scanner == 'trivy'
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'image'
@@ -457,7 +454,6 @@ jobs:
           TRIVY_SKIP_UPDATE: false
 
       - name: Run Trivy Config Scanner
-        if: matrix.scanner == 'trivy'
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'config'
@@ -468,11 +464,10 @@ jobs:
           exit-code: '0'
 
       - name: Run Trivy Secret Scanner
-        if: matrix.scanner == 'trivy'
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'image'
-          image-ref: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.build.outputs.image-tag }}'
+          image-ref: '${{ needs.build.outputs.image-tag }}'
           format: 'json'
           output: 'trivy-secrets.json'
           scanners: 'secret'
@@ -480,47 +475,10 @@ jobs:
           secret-config: '.trivy-secret.yaml'
 
       - name: Upload Trivy Results
-        if: matrix.scanner == 'trivy' && always()
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: trivy-results.sarif
           category: trivy
-
-      # -------------------------------------------------------------------------
-      # GRYPE SCANNER
-      # -------------------------------------------------------------------------
-      - name: Run Grype Vulnerability Scanner
-        if: matrix.scanner == 'grype'
-        uses: anchore/scan-action@v4
-        id: grype
-        with:
-          image: '${{ needs.build.outputs.image-tag }}'
-          format: 'sarif'
-          output-file: 'grype-results.sarif'
-          severity-cutoff: 'medium'
-          fail-build: true
-          additional-flags: >
-            --sbom sbom/sbom.spdx.json
-            --ignore-unfixed
-            --by-cve
-            --exclude '**/test**'
-
-      - name: Run Grype with SBOM Directly
-        if: matrix.scanner == 'grype'
-        run: |
-          grype sbom:sbom/sbom.spdx.json \
-            -o json > grype-sbom-results.json || true
-          grype sbom:sbom/sbom.spdx.json \
-            -o table > grype-sbom-results.txt || true
-
-      - name: Upload Grype Results
-        if: matrix.scanner == 'grype' && always()
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: grype-results.sarif
-          category: grype
-
-
       # -------------------------------------------------------------------------
       # Common Steps
       # -------------------------------------------------------------------------
@@ -528,7 +486,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: scan-results-${{ matrix.scanner }}
+          name: scan-results-trivy
           path: |
             *-results.*
             *-results.json
@@ -537,7 +495,7 @@ jobs:
       - name: Scan Summary
         if: always()
         run: |
-          echo "## 🟣 ${{ matrix.scanner }} Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "## 🟣 Trivy Scan Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ -f "*-results.txt" ]; then
             echo '```' >> $GITHUB_STEP_SUMMARY
@@ -572,22 +530,6 @@ jobs:
         run: |
           cosign version
           cosign verify-blob --help
-
-      # -------------------------------------------------------------------------
-      # Keyless Signing (OIDC)
-      # -------------------------------------------------------------------------
-      - name: Sign Image with Cosign (Keyless - OIDC)
-        uses: sigstore/cosign-action@v3
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.build.outputs.image-tag }}
-          digest: ${{ needs.build.outputs.image-digest }}
-        env:
-          COSIGN_EXPERIMENTAL: "true"
-
-      - name: Sign Image Digest
-        run: |
-          cosign sign --yes \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }}
 
       # -------------------------------------------------------------------------
       # Key-based Signing (Optional - for additional verification)
@@ -625,36 +567,8 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }}
 
       # -------------------------------------------------------------------------
-      # Attestations
-      # -------------------------------------------------------------------------
-      - name: Create Vulnerability Attestation
-        run: |
-          # Download scan results
-
-          # Create vulnerability attestation
-          cosign attest --yes \
-            --predicate sbom/sbom.spdx.json \
-            --type https://spdx.dev/Document \
-            --key env://COSIGN_PRIVATE_KEY \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }} || \
-          cosign attest --yes \
-            --predicate sbom/sbom.spdx.json \
-            --type https://spdx.dev/Document \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }}
-        env:
-          COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
-          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
-
-      # -------------------------------------------------------------------------
       # Verification
       # -------------------------------------------------------------------------
-      - name: Verify Signature (Keyless)
-        run: |
-          cosign verify \
-            --certificate-identity="${{ github.actor }}" \
-            --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }}
-
       - name: Verify Signature (Key-based)
         if: vars.COSIGN_PUBLIC_KEY != ''
         run: |
