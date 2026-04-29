@@ -23,7 +23,7 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: devsecops-usecase
+  IMAGE_NAME: ${{ github.repository }}
   COSIGN_EXPERIMENTAL: "true"
   SYFT_FORMAT: "spdx-json"
 
@@ -371,7 +371,7 @@ jobs:
         id: sbom
         uses: anchore/sbom-action@v0.24.0
         with:
-          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.tags }}
+          image: ${{ steps.meta.outputs.tags }}
           format: spdx-json
           output-file: sbom.spdx.json
           dependency-snapshot: true
@@ -379,11 +379,11 @@ jobs:
       - name: Generate Additional SBOM Formats
         run: |
           # CycloneDX format
-          syft ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.tags }} \
+          syft ${{ steps.meta.outputs.tags }} \
             -o cyclonedx-json > sbom.cyclonedx.json
 
           # Table format for human reading
-          syft ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.tags }} \
+          syft ${{ steps.meta.outputs.tags }} \
             -o table > sbom.txt
 
       - name: Upload SBOM Artifacts
@@ -437,7 +437,7 @@ jobs:
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'image'
-          image-ref: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.build.outputs.image-tag }}'
+          image-ref: '${{ needs.build.outputs.image-tag }}'
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH,MEDIUM'
