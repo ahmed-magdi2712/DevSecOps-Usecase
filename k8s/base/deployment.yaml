@@ -3,6 +3,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: app
+  namespace: production
   labels:
     app.kubernetes.io/name: secureapp
     app.kubernetes.io/component: api
@@ -32,14 +33,14 @@ spec:
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
-        runAsUser: 1001
-        runAsGroup: 1001
-        fsGroup: 1001
+        runAsUser: 10000
+        runAsGroup: 10000
+        fsGroup: 10000
         seccompProfile:
           type: RuntimeDefault
       containers:
         - name: api
-          image: ghcr.io/secureapp:latest
+          image: ghcr.io/secureapp:app-v1.0.0
           imagePullPolicy: Always
           ports:
             - name: http
@@ -56,6 +57,21 @@ spec:
                 configMapKeyRef:
                   name: secureapp-config
                   key: LOG_LEVEL
+            - name: PORT
+              valueFrom:
+                secretKeyRef:
+                  name: secureapp-secrets
+                  key: PORT
+            - name: RATE_LIMIT_REQUESTS
+              valueFrom:
+                secretKeyRef:
+                  name: secureapp-secrets
+                  key: RATE_LIMIT_REQUESTS
+            - name: CACHE_TTL
+              valueFrom:
+                secretKeyRef:
+                  name: secureapp-secrets
+                  key: CACHE_TTL
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
@@ -104,7 +120,7 @@ spec:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             runAsNonRoot: true
-            runAsUser: 1001
+            runAsUser: 10000
             capabilities:
               drop:
                 - ALL
