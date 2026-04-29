@@ -23,7 +23,7 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: devsecops-usecase
+  IMAGE_NAME: ${{ github.repository }}
   COSIGN_EXPERIMENTAL: "true"
   SYFT_FORMAT: "spdx-json"
 
@@ -536,6 +536,9 @@ jobs:
           cosign version
           cosign verify-blob --help
 
+      - name: Normalize image name
+        run: echo "IMAGE_NAME_LOWER=$(echo '${{ env.IMAGE_NAME }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
       # -------------------------------------------------------------------------
       # Key-based Signing (Optional - for additional verification)
       # -------------------------------------------------------------------------
@@ -550,7 +553,7 @@ jobs:
             --annotations "run_id=${{ github.run_id }}" \
             --annotations "run_number=${{ github.run_number }}" \
             --yes \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}@${{ needs.build.outputs.image-digest }}
         env:
           COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
           COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
@@ -563,12 +566,12 @@ jobs:
           # Attach SBOM to image
           cosign attach sbom \
             --sbom sbom/sbom.spdx.json \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}@${{ needs.build.outputs.image-digest }}
 
           # Sign the SBOM
           cosign sign --yes \
             --attachment sbom \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}@${{ needs.build.outputs.image-digest }}
 
       # -------------------------------------------------------------------------
       # Verification
@@ -578,12 +581,12 @@ jobs:
         run: |
           cosign verify \
             --key ${{ vars.COSIGN_PUBLIC_KEY }} \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}@${{ needs.build.outputs.image-digest }}
 
       - name: Verify SBOM Attachment
         run: |
           cosign download sbom \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}@${{ needs.build.outputs.image-digest }}
 
       - name: Signing Summary
         run: |
@@ -591,18 +594,16 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Item | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| OIDC Signature | ✅ Signed |" >> $GITHUB_STEP_SUMMARY
           echo "| Key Signature | ✅ Signed |" >> $GITHUB_STEP_SUMMARY
           echo "| SBOM Attachment | ✅ Attached & Signed |" >> $GITHUB_STEP_SUMMARY
-          echo "| SLSA Provenance | ✅ Attested |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Verification Commands" >> $GITHUB_STEP_SUMMARY
           echo '```bash' >> $GITHUB_STEP_SUMMARY
-          echo "# Verify OIDC signature" >> $GITHUB_STEP_SUMMARY
+          echo "# Verify signature" >> $GITHUB_STEP_SUMMARY
           echo "cosign verify \\" >> $GITHUB_STEP_SUMMARY
           echo "  --certificate-identity='${{ github.actor }}' \\" >> $GITHUB_STEP_SUMMARY
           echo "  --certificate-oidc-issuer='https://token.actions.githubusercontent.com' \\" >> $GITHUB_STEP_SUMMARY
-          echo "  ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }}" >> $GITHUB_STEP_SUMMARY
+          echo "  ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}@${{ needs.build.outputs.image-digest }}" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
   # ============================================================================
