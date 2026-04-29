@@ -374,7 +374,6 @@ jobs:
           image: ${{ steps.meta.outputs.tags }}
           format: spdx-json
           output-file: sbom.spdx.json
-          dependency-snapshot: true
 
       - name: Generate Additional SBOM Formats
         run: |
