@@ -1,8 +1,8 @@
 """Additional unit tests for schemas and helpers."""
 
-import pytest
 import uuid
-from datetime import datetime, timezone
+
+import pytest
 
 pytestmark = pytest.mark.unit
 
@@ -45,11 +45,7 @@ class TestItemUpdateSchema:
         """ItemUpdate can update all fields."""
         from src.app.schemas.schemas import ItemUpdate
 
-        update = ItemUpdate(
-            title="New Title",
-            description="New Description",
-            is_public=True
-        )
+        update = ItemUpdate(title="New Title", description="New Description", is_public=True)
         assert update.title == "New Title"
         assert update.description == "New Description"
         assert update.is_public is True
@@ -71,11 +67,7 @@ class TestUserUpdateSchema:
         """UserUpdate can update all fields."""
         from src.app.schemas.schemas import UserUpdate
 
-        update = UserUpdate(
-            email="new@example.com",
-            full_name="New Name",
-            password="newpassword123"
-        )
+        update = UserUpdate(email="new@example.com", full_name="New Name", password="newpassword123")
         assert update.email == "new@example.com"
         assert update.full_name == "New Name"
         assert update.password == "newpassword123"
@@ -183,8 +175,9 @@ class TestSecurityHelpers:
 
     def test_decode_token_with_invalid_token(self):
         """decode_token raises error with invalid token."""
-        from src.app.core.security import decode_token
         from jose import JWTError
+
+        from src.app.core.security import decode_token
 
         with pytest.raises(JWTError):
             decode_token("invalid.token.here")

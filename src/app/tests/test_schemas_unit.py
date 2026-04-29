@@ -1,19 +1,20 @@
 """Unit tests for data schemas."""
 
-import pytest
 import uuid
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime
+
+import pytest
 
 from src.app.schemas.schemas import (
-    Token,
-    UserCreate,
-    UserUpdate,
-    UserResponse,
+    ComponentHealth,
+    HealthResponse,
     ItemCreate,
     ItemResponse,
-    HealthResponse,
-    ComponentHealth,
     PaginatedResponse,
+    Token,
+    UserCreate,
+    UserResponse,
+    UserUpdate,
 )
 
 pytestmark = pytest.mark.unit
@@ -25,11 +26,7 @@ class TestTokenSchema:
     def test_token_creation(self):
         """Token schema can be created with tokens."""
 
-        token = Token(
-            access_token="access_token_value",
-            refresh_token="refresh_token_value",
-            token_type="bearer"
-        )
+        token = Token(access_token="access_token_value", refresh_token="refresh_token_value", token_type="bearer")
 
         assert token.access_token == "access_token_value"
         assert token.refresh_token == "refresh_token_value"
@@ -37,10 +34,7 @@ class TestTokenSchema:
 
     def test_token_default_token_type(self):
         """Token should have default token_type of bearer."""
-        token = Token(
-            access_token="access",
-            refresh_token="refresh"
-        )
+        token = Token(access_token="access", refresh_token="refresh")
         assert token.token_type == "bearer"
 
 
@@ -51,11 +45,7 @@ class TestUserCreateSchema:
         """UserCreate accepts valid data."""
         from src.app.schemas.schemas import UserCreate
 
-        user = UserCreate(
-            username="newuser",
-            email="newuser@example.com",
-            password="SecurePass123!"
-        )
+        user = UserCreate(username="newuser", email="newuser@example.com", password="SecurePass123!")
 
         assert user.username == "newuser"
         assert user.email == "newuser@example.com"
@@ -66,11 +56,7 @@ class TestUserCreateSchema:
         from pydantic import ValidationError
 
         with pytest.raises(ValidationError):
-            UserCreate(
-                username="user",
-                email="invalid-email",
-                password="Password123"
-            )
+            UserCreate(username="user", email="invalid-email", password="Password123")
 
 
 class TestUserUpdateSchema:
@@ -78,7 +64,6 @@ class TestUserUpdateSchema:
 
     def test_user_update_partial(self):
         """UserUpdate allows partial updates."""
-        from src.app.schemas.schemas import UserUpdate
 
         update = UserUpdate(full_name="New Name")
         assert update.full_name == "New Name"
@@ -91,7 +76,6 @@ class TestUserResponseSchema:
 
     def test_user_response_from_dict(self):
         """UserResponse can be created from dict."""
-        from src.app.schemas.schemas import UserResponse
 
         data = {
             "id": uuid.uuid4(),
@@ -100,8 +84,8 @@ class TestUserResponseSchema:
             "full_name": "Test User",
             "is_active": True,
             "is_superuser": False,
-            "created_at": datetime.now(timezone.utc),
-            "updated_at": datetime.now(timezone.utc),
+            "created_at": datetime.now(UTC),
+            "updated_at": datetime.now(UTC),
         }
 
         user = UserResponse.model_validate(data)
@@ -116,11 +100,7 @@ class TestItemCreateSchema:
         """ItemCreate accepts all fields."""
         from src.app.schemas.schemas import ItemCreate
 
-        item = ItemCreate(
-            title="My Item",
-            description="Item Description",
-            is_public=True
-        )
+        item = ItemCreate(title="My Item", description="Item Description", is_public=True)
 
         assert item.title == "My Item"
         assert item.description == "Item Description"
@@ -137,7 +117,6 @@ class TestItemResponseSchema:
 
     def test_item_response_from_dict(self):
         """ItemResponse can be created from dict."""
-        from src.app.schemas.schemas import ItemResponse
 
         data = {
             "id": 1,
@@ -145,8 +124,8 @@ class TestItemResponseSchema:
             "description": "Description",
             "is_public": False,
             "owner_id": uuid.uuid4(),
-            "created_at": datetime.now(timezone.utc),
-            "updated_at": datetime.now(timezone.utc),
+            "created_at": datetime.now(UTC),
+            "updated_at": datetime.now(UTC),
         }
 
         item = ItemResponse.model_validate(data)
@@ -158,7 +137,6 @@ class TestHealthResponseSchema:
 
     def test_health_response_structure(self):
         """HealthResponse has correct structure."""
-        from src.app.schemas.schemas import HealthResponse, ComponentHealth
 
         health = HealthResponse(
             status="healthy",
@@ -167,7 +145,7 @@ class TestHealthResponseSchema:
             components={
                 "database": ComponentHealth(status="healthy", message=None),
                 "redis": ComponentHealth(status="healthy", message=None),
-            }
+            },
         )
 
         assert health.status == "healthy"
@@ -181,7 +159,6 @@ class TestPaginatedResponseSchema:
 
     def test_paginated_response_creation(self):
         """PaginatedResponse can be created."""
-        from src.app.schemas.schemas import PaginatedResponse, UserResponse
 
         users = [
             UserResponse(
@@ -191,17 +168,12 @@ class TestPaginatedResponseSchema:
                 full_name="User 1",
                 is_active=True,
                 is_superuser=False,
-                created_at=datetime.now(timezone.utc),
-                updated_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
+                updated_at=datetime.now(UTC),
             )
         ]
 
-        response = PaginatedResponse(
-            total=1,
-            page=1,
-            page_size=20,
-            items=users
-        )
+        response = PaginatedResponse(total=1, page=1, page_size=20, items=users)
 
         assert response.total == 1
         assert response.page == 1

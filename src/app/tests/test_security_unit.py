@@ -1,7 +1,6 @@
 """Unit tests for auth refresh endpoint."""
 
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
 from httpx import AsyncClient
 
 pytestmark = pytest.mark.unit
@@ -24,6 +23,7 @@ class TestAuthRefreshEndpoint:
         """Refresh with valid JWT structure but wrong type should return 401."""
         # Create an access token and try to use it as refresh token
         from src.app.core.security import create_access_token
+
         access_token = create_access_token(subject="test-user-id")
 
         response = await async_client.post(
@@ -86,23 +86,21 @@ class TestSecurityModule:
 
     def test_create_access_token_with_extra_claims(self):
         """create_access_token should include extra claims if provided."""
-        from src.app.core.security import create_access_token
         import base64
         import json
 
-        token = create_access_token(
-            subject="test-user",
-            extra_claims={"role": "admin", "scope": "read write"}
-        )
+        from src.app.core.security import create_access_token
+
+        token = create_access_token(subject="test-user", extra_claims={"role": "admin", "scope": "read write"})
 
         # Decode payload (JWT format: header.payload.signature)
-        parts = token.split('.')
+        parts = token.split(".")
         if len(parts) >= 2:
             payload = parts[1]
             # Add padding if needed
             padding = 4 - (len(payload) % 4)
             if padding != 4:
-                payload += '=' * padding
+                payload += "=" * padding
             decoded = json.loads(base64.urlsafe_b64decode(payload))
 
             assert decoded["sub"] == "test-user"
@@ -120,8 +118,9 @@ class TestSecurityModule:
 
     def test_decode_token_invalid(self):
         """decode_token should raise for invalid token."""
-        from src.app.core.security import decode_token
         from jose import JWTError
+
+        from src.app.core.security import decode_token
 
         with pytest.raises(JWTError):
             decode_token("not.valid.token")
@@ -147,7 +146,7 @@ class TestLoggingModule:
 
     def test_logger_has_context(self):
         """Logger should have context filtering."""
-        from src.app.core.logging import get_logger, add_app_context
+        from src.app.core.logging import add_app_context, get_logger
 
         logger = get_logger("test")
 
