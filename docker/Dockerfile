@@ -12,10 +12,6 @@ ARG VERSION
 
 WORKDIR /build
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        gcc=4:13.2.0-23 \
-    && rm -rf /var/lib/apt/lists/*
-
 COPY src/app/requirements.txt .
 
 RUN pip install --no-cache-dir --upgrade pip==25.0 \
@@ -24,7 +20,7 @@ RUN pip install --no-cache-dir --upgrade pip==25.0 \
 # ============================================================================
 # Stage 2 – Security runtime (distroless-inspired minimal image)
 # ============================================================================
-FROM gcr.io/distroless/python3-debian12:nonroot AS runtime
+FROM python:3.12-slim-bookworm AS runtime
 
 ARG BUILD_DATE
 ARG VCS_REF
@@ -45,7 +41,9 @@ WORKDIR /app
 
 COPY --from=builder /install /usr/local
 
-COPY --chown=nonroot:nonroot src/app/ ./src/app/
+COPY src/app/ ./src/app/
+
+RUN groupadd -g 1000 appgroup && useradd -u 1000 -g appgroup -m appuser
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -54,7 +52,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONFAULTHANDLER=1 \
     PYTHONHASHSEED=random
 
-USER nonroot
+RUN chown -R appuser:appgroup /app
+
+USER appuser
 
 EXPOSE 8000
 
@@ -62,9 +62,9 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
     CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health/live')"]
 
 CMD ["python", "-m", "uvicorn", "src.app.main:app", \
-     "--host", "127.0.0.1", \
-     "--port", "${PORT}", \
-     "--workers", "${WORKERS:-1}", \
-     "--log-level", "${LOG_LEVEL:-info}", \
+     "--host", "0.0.0.0", \
+     "--port", "8000", \
+     "--workers", "1", \
+     "--log-level", "info", \
      "--proxy-headers", \
      "--forwarded-allow-ips=*"]
