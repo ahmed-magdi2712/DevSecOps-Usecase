@@ -576,12 +576,14 @@ jobs:
       # -------------------------------------------------------------------------
       # Verification
       # -------------------------------------------------------------------------
-      - name: Verify Signature (Key-based)
-        if: vars.COSIGN_PUBLIC_KEY != ''
+      - name: Verify Signature
         run: |
           cosign verify \
-            --key ${{ vars.COSIGN_PUBLIC_KEY }} \
+            --key env://COSIGN_PUBLIC_KEY \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}@${{ needs.build.outputs.image-digest }}
+        env:
+          COSIGN_PUBLIC_KEY: ${{ vars.COSIGN_PUBLIC_KEY }}
+
 
       - name: Verify SBOM Attachment
         run: |
