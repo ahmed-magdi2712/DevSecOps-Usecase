@@ -16,6 +16,7 @@ services:
       ENVIRONMENT: development
       DEBUG: "true"
       LOG_LEVEL: debug
+      PORT: "8000"
       DATABASE_URL: postgresql://app_user:app_password@postgres:5432/app_db
       REDIS_URL: redis://redis:6379/0
       SECRET_KEY: local-dev-secret-key-change-me-in-production
