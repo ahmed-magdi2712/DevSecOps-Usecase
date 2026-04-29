@@ -10,8 +10,8 @@ A production-ready **FastAPI** application built to demonstrate every stage of t
 | 🟡 Test | pytest + asyncio | Unit, integration, and security tests (≥80% coverage) |
 | 🟠 SonarQube | SonarQube Cloud with AI CodeFix | Static analysis + AI suggestions |
 | 🔵 Build | Docker BuildKit + Syft | Multi-stage image + SBOM (SPDX & CycloneDX) |
-| 🟣 Scan | Trivy, Grype, Snyk, Anchore | Vulnerability scanning against image + SBOM |
-| 🟢 Sign | Cosign (OIDC keyless + key-based) | Image signing + SLSA L3 provenance |
+| 🟣 Scan | Trivy | Vulnerability scanning against image + SBOM |
+| 🟢 Sign | Cosign (key-based) | Image signing + SLSA L3 provenance |
 | 🚀 Deploy | ArgoCD + Kustomize | GitOps deployment to dev/staging/prod |
 
 ## Technology Stack
