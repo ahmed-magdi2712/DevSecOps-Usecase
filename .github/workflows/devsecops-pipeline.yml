@@ -188,7 +188,6 @@ jobs:
             -v \
             --tb=short \
             --junitxml=junit-results.xml \
-            -n auto \
             --timeout=60
 
       - name: Run Integration Tests
