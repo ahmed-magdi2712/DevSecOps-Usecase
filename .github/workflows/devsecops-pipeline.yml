@@ -23,7 +23,7 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: devsecops-usecase
   COSIGN_EXPERIMENTAL: "true"
   SYFT_FORMAT: "spdx-json"
 
