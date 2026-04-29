@@ -1,8 +1,6 @@
 """Even more unit tests for additional coverage."""
 
 import pytest
-import uuid
-from datetime import datetime, timezone
 
 pytestmark = pytest.mark.unit
 
@@ -13,7 +11,6 @@ class TestAPIEndpoints:
     def test_deps_current_user_type(self):
         """CurrentUser type alias is correct."""
         from src.app.api.v1.deps import CurrentUser
-        from src.app.models.models import User
 
         # Should be Annotated[User, Depends(...)]
         assert CurrentUser.__origin__ is not None
@@ -59,11 +56,13 @@ class TestHealthEndpointDetails:
     def test_health_check_db_imports(self):
         """Health check imports are available."""
         from src.app.api.v1.health import check_db_connection
+
         assert check_db_connection is not None
 
     def test_health_check_redis_imports(self):
         """Health check imports are available."""
         from src.app.api.v1.health import check_redis_connection
+
         assert check_redis_connection is not None
 
 
@@ -73,6 +72,7 @@ class TestAuthEndpointDetails:
     def test_auth_router_exists(self):
         """Auth router is defined."""
         from src.app.api.v1.auth import router
+
         assert router is not None
         assert router.prefix == "/auth"
 
@@ -83,6 +83,7 @@ class TestItemsEndpointDetails:
     def test_items_router_exists(self):
         """Items router is defined."""
         from src.app.api.v1.items import router
+
         assert router is not None
         assert router.prefix == "/items"
 
@@ -93,6 +94,7 @@ class TestUsersEndpointDetails:
     def test_users_router_exists(self):
         """Users router is defined."""
         from src.app.api.v1.users import router
+
         assert router is not None
         assert router.prefix == "/users"
 
@@ -144,8 +146,9 @@ class TestSecurityTokenValidation:
 
     def test_decode_token_missing_signature(self):
         """decode_token raises on malformed token."""
-        from src.app.core.security import decode_token
         from jose import JWTError
+
+        from src.app.core.security import decode_token
 
         with pytest.raises(JWTError):
             decode_token("only.two.parts")
@@ -158,13 +161,13 @@ class TestModelRelationships:
         """User has items relationship."""
         from src.app.models.models import User
 
-        assert hasattr(User, 'items')
+        assert hasattr(User, "items")
 
     def test_item_relationship_owner(self):
         """Item has owner relationship."""
         from src.app.models.models import Item
 
-        assert hasattr(Item, 'owner')
+        assert hasattr(Item, "owner")
 
 
 class TestSchemaValidation:
@@ -173,30 +176,33 @@ class TestSchemaValidation:
     def test_user_create_validates_username_min_length(self):
         """UserCreate validates username minimum length."""
         from pydantic import ValidationError
+
         from src.app.schemas.schemas import UserCreate
 
         with pytest.raises(ValidationError):
             UserCreate(
                 username="ab",  # Too short
                 email="test@example.com",
-                password="ValidPass123!"
+                password="ValidPass123!",
             )
 
     def test_user_create_validates_password_min_length(self):
         """UserCreate validates password minimum length."""
         from pydantic import ValidationError
+
         from src.app.schemas.schemas import UserCreate
 
         with pytest.raises(ValidationError):
             UserCreate(
                 username="validuser",
                 email="test@example.com",
-                password="Ab1"  # Too short
+                password="Ab1",  # Too short
             )
 
     def test_item_create_validates_title_required(self):
         """ItemCreate requires title."""
         from pydantic import ValidationError
+
         from src.app.schemas.schemas import ItemCreate
 
         with pytest.raises(ValidationError):
@@ -211,24 +217,26 @@ class TestCacheHelper:
         from src.app.services import cache
 
         # Just check the module loads
-        assert hasattr(cache, 'cache_set')
-        assert hasattr(cache, 'cache_get')
+        assert hasattr(cache, "cache_set")
+        assert hasattr(cache, "cache_get")
 
     def test_cache_delete_import(self):
         """cache_delete is available."""
         from src.app.services.cache import cache_delete
+
         assert callable(cache_delete)
 
     def test_cache_clear_import(self):
         """cache_exists is available."""
         from src.app.services.cache import cache_exists
+
         assert callable(cache_exists)
 
     def test_cache_service_imports(self):
         """Cache service has all required functions."""
         from src.app.services import cache
 
-        assert hasattr(cache, 'cache_set')
-        assert hasattr(cache, 'cache_get')
-        assert hasattr(cache, 'cache_delete')
-        assert hasattr(cache, 'cache_exists')
+        assert hasattr(cache, "cache_set")
+        assert hasattr(cache, "cache_get")
+        assert hasattr(cache, "cache_delete")
+        assert hasattr(cache, "cache_exists")

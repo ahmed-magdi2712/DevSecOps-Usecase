@@ -1,7 +1,8 @@
 """Additional integration tests for API endpoints."""
 
-import pytest
 import uuid
+
+import pytest
 from httpx import AsyncClient
 
 pytestmark = pytest.mark.integration
@@ -33,12 +34,11 @@ class TestUserManagement:
         assert response.status_code == 422
 
     @pytest.mark.asyncio
-    async def test_get_other_user_as_regular_user_forbidden(self, async_client: AsyncClient, auth_headers, test_superuser):
+    async def test_get_other_user_as_regular_user_forbidden(
+        self, async_client: AsyncClient, auth_headers, test_superuser
+    ):
         """Regular user cannot get another user's profile."""
-        response = await async_client.get(
-            f"/api/v1/users/{test_superuser.id}",
-            headers=auth_headers
-        )
+        response = await async_client.get(f"/api/v1/users/{test_superuser.id}", headers=auth_headers)
         assert response.status_code == 403
 
     @pytest.mark.asyncio
@@ -53,11 +53,7 @@ class TestUserManagement:
     async def test_update_other_user_forbidden(self, async_client: AsyncClient, auth_headers, test_superuser):
         """User cannot update another user's profile."""
         payload = {"full_name": "Hacked Name"}
-        response = await async_client.patch(
-            f"/api/v1/users/{test_superuser.id}",
-            json=payload,
-            headers=auth_headers
-        )
+        response = await async_client.patch(f"/api/v1/users/{test_superuser.id}", json=payload, headers=auth_headers)
         assert response.status_code == 403
 
 
@@ -82,20 +78,14 @@ class TestSuperUserEndpoints:
     @pytest.mark.asyncio
     async def test_delete_user_as_superuser(self, async_client: AsyncClient, superuser_headers, test_user):
         """Superuser can deactivate a user."""
-        response = await async_client.delete(
-            f"/api/v1/users/{test_user.id}",
-            headers=superuser_headers
-        )
+        response = await async_client.delete(f"/api/v1/users/{test_user.id}", headers=superuser_headers)
         assert response.status_code == 204
 
     @pytest.mark.asyncio
     async def test_delete_nonexistent_user_as_superuser(self, async_client: AsyncClient, superuser_headers):
         """Deleting nonexistent user returns 404."""
         fake_id = uuid.uuid4()
-        response = await async_client.delete(
-            f"/api/v1/users/{fake_id}",
-            headers=superuser_headers
-        )
+        response = await async_client.delete(f"/api/v1/users/{fake_id}", headers=superuser_headers)
         assert response.status_code == 404
 
 
@@ -114,11 +104,7 @@ class TestItemCRUD:
     async def test_update_item_title(self, async_client: AsyncClient, auth_headers, test_item):
         """Update item title should work."""
         payload = {"title": "Updated Title"}
-        response = await async_client.patch(
-            f"/api/v1/items/{test_item.id}",
-            json=payload,
-            headers=auth_headers
-        )
+        response = await async_client.patch(f"/api/v1/items/{test_item.id}", json=payload, headers=auth_headers)
         assert response.status_code == 200
         assert response.json()["title"] == "Updated Title"
 
@@ -126,11 +112,7 @@ class TestItemCRUD:
     async def test_update_item_description(self, async_client: AsyncClient, auth_headers, test_item):
         """Update item description should work."""
         payload = {"description": "New description"}
-        response = await async_client.patch(
-            f"/api/v1/items/{test_item.id}",
-            json=payload,
-            headers=auth_headers
-        )
+        response = await async_client.patch(f"/api/v1/items/{test_item.id}", json=payload, headers=auth_headers)
         assert response.status_code == 200
 
     @pytest.mark.asyncio
@@ -146,22 +128,17 @@ class TestTokenRefresh:
     @pytest.mark.asyncio
     async def test_refresh_token_invalid(self, async_client: AsyncClient):
         """Refresh with invalid token should return 401."""
-        response = await async_client.post(
-            "/api/v1/auth/refresh",
-            json={"refresh_token": "invalid.token.here"}
-        )
+        response = await async_client.post("/api/v1/auth/refresh", json={"refresh_token": "invalid.token.here"})
         assert response.status_code == 401
 
     @pytest.mark.asyncio
     async def test_refresh_with_access_token_fails(self, async_client: AsyncClient, test_user):
         """Using access token for refresh should fail."""
         from src.app.core.security import create_access_token
+
         token = create_access_token(subject=str(test_user.id))
 
-        response = await async_client.post(
-            "/api/v1/auth/refresh",
-            json={"refresh_token": token}
-        )
+        response = await async_client.post("/api/v1/auth/refresh", json={"refresh_token": token})
         assert response.status_code == 401
 
 

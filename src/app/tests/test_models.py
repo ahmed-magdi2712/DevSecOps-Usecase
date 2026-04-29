@@ -1,8 +1,8 @@
 """Unit tests for data models."""
 
-import pytest
 import uuid
-from datetime import datetime, timezone
+
+import pytest
 
 pytestmark = pytest.mark.unit
 
@@ -31,13 +31,15 @@ class TestUserModel:
     def test_user_model_tablename(self):
         """User model should have correct tablename."""
         from src.app.models.models import User
+
         assert User.__tablename__ == "users"
 
     def test_user_model_has_timestamps(self):
         """User model should have created_at and updated_at."""
         from src.app.models.models import User
-        assert hasattr(User, 'created_at')
-        assert hasattr(User, 'updated_at')
+
+        assert hasattr(User, "created_at")
+        assert hasattr(User, "updated_at")
 
 
 class TestItemModel:
@@ -63,6 +65,7 @@ class TestItemModel:
     def test_item_model_tablename(self):
         """Item model should have correct tablename."""
         from src.app.models.models import Item
+
         assert Item.__tablename__ == "items"
 
 
@@ -73,5 +76,5 @@ class TestTimestampMixin:
         """TimestampMixin should add created_at and updated_at."""
         from src.app.models.models import TimestampMixin
 
-        assert hasattr(TimestampMixin, 'created_at')
-        assert hasattr(TimestampMixin, 'updated_at')
+        assert hasattr(TimestampMixin, "created_at")
+        assert hasattr(TimestampMixin, "updated_at")
