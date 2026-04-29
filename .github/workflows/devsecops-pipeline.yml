@@ -367,12 +367,11 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ github.ref }}
-          cache-to: type=gha,mode=max,scope=${{ github.ref }}
+          cache-to: type=gha,mode=min,scope=${{ github.ref }}
           build-args: |
             BUILD_DATE=${{ github.event.head_commit.timestamp }}
             VCS_REF=${{ github.sha }}
             VERSION=${{ steps.meta.outputs.version }}
-          provenance: mode=max
           sbom: true
 
       - name: Generate SBOM with Syft
