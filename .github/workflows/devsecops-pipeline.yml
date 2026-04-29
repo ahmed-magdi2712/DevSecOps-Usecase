@@ -489,7 +489,7 @@ jobs:
         uses: anchore/scan-action@v4
         id: grype
         with:
-          image: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.build.outputs.image-tag }}'
+          image: '${{ needs.build.outputs.image-tag }}'
           format: 'sarif'
           output-file: 'grype-results.sarif'
           severity-cutoff: 'medium'
@@ -524,7 +524,7 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          image: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.build.outputs.image-tag }}'
+          image: '${{ needs.build.outputs.image-tag }}'
           args: >
             --severity-threshold=high
             --sarif-file-output=snyk-results.sarif
@@ -532,6 +532,7 @@ jobs:
             --exclude-app-vulns
             --policy-path=.snyk
             --fail-on=all
+            --file=docker/Dockerfile
 
       - name: Run Snyk IaC Scan
         if: matrix.scanner == 'snyk'
