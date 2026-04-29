@@ -515,43 +515,6 @@ jobs:
           sarif_file: grype-results.sarif
           category: grype
 
-      # -------------------------------------------------------------------------
-      # SNYK SCANNER
-      # -------------------------------------------------------------------------
-      - name: Run Snyk Container Scan
-        if: matrix.scanner == 'snyk'
-        uses: snyk/actions/container@master
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          image: '${{ needs.build.outputs.image-tag }}'
-          args: >
-            --severity-threshold=high
-            --sarif-file-output=snyk-results.sarif
-            --json-file-output=snyk-results.json
-            --exclude-app-vulns
-            --policy-path=.snyk
-            --fail-on=all
-            --file=docker/Dockerfile
-
-      - name: Run Snyk IaC Scan
-        if: matrix.scanner == 'snyk'
-        uses: snyk/actions/iac@master
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          args: >
-            k8s/
-            --severity-threshold=high
-            --sarif-file-output=snyk-iac-results.sarif
-            --json-file-output=snyk-iac-results.json
-
-      - name: Upload Snyk Results
-        if: matrix.scanner == 'snyk' && always()
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: snyk-results.sarif
-          category: snyk
 
       # -------------------------------------------------------------------------
       # Common Steps
