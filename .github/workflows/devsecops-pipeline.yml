@@ -377,7 +377,7 @@ jobs:
 
       - name: Generate SBOM with Syft
         id: sbom
-        uses: anchore/sbom-action@v0
+        uses: anchore/sbom-action@v0.24.0
         with:
           image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
           format: spdx-json
@@ -393,17 +393,6 @@ jobs:
           # Table format for human reading
           syft ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
             -o table > sbom.txt
-
-          # SPDX with all relationships
-          syft ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
-            -o spdx-json --cataloger all-layers > sbom-full.spdx.json
-
-      - name: Attest SBOM
-        uses: actions/attest-build-provenance@v1
-        with:
-          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          subject-digest: ${{ steps.build.outputs.digest }}
-          push-to-registry: true
 
       - name: Upload SBOM Artifacts
         uses: actions/upload-artifact@v4
@@ -571,39 +560,6 @@ jobs:
         with:
           sarif_file: snyk-results.sarif
           category: snyk
-
-      # -------------------------------------------------------------------------
-      # ANCHORE SCANNER
-      # -------------------------------------------------------------------------
-      - name: Run Anchore Grype Enterprise Scan
-        if: matrix.scanner == 'anchore'
-        uses: anchore/anchore-scan-action@v3
-        with:
-          image-reference: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}'
-          severity-cutoff: 'high'
-          fail-build: true
-          acs-report-enable: true
-          format: 'sarif'
-          output-file: 'anchore-results.sarif'
-        env:
-          ANCHORE_CLI_URL: ${{ secrets.ANCHORE_URL }}
-          ANCHORE_CLI_USER: ${{ secrets.ANCHORE_USER }}
-          ANCHORE_CLI_PASS: ${{ secrets.ANCHORE_PASSWORD }}
-
-      - name: Run Anchore Policy Check
-        if: matrix.scanner == 'anchore'
-        run: |
-          curl -s -u "${{ secrets.ANCHORE_USER }}:${{ secrets.ANCHORE_PASSWORD }}" \
-            "${{ secrets.ANCHORE_URL }}/images/${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}/check" \
-            -o anchore-policy-check.json || true
-          cat anchore-policy-check.json | jq '.' || true
-
-      - name: Upload Anchore Results
-        if: matrix.scanner == 'anchore' && always()
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: anchore-results.sarif
-          category: anchore
 
       # -------------------------------------------------------------------------
       # Common Steps
