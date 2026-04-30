@@ -27,3 +27,4 @@ CVE-2024-47874
 # Kubernetes misconfiguration exceptions
 # KSV-0125: ghcr.io is a trusted registry (GitHub Container Registry)
 KSV-0125
+KSV-0053
