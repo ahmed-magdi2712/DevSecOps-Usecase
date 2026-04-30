@@ -681,7 +681,7 @@ jobs:
           while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
             echo "Attempt $((RETRY_COUNT + 1)) of $MAX_RETRIES"
 
-            if argocd app sync ${{ env.APP_NAME }} --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN  --insecure --revision HEAD --force --timeout 300; then
+            if argocd app sync ${{ env.APP_NAME }} --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN  --insecure --force --timeout 300; then
               echo "Sync initiated successfully"
               break
             fi
