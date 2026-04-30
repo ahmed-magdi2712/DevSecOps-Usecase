@@ -642,7 +642,7 @@ jobs:
 
           # Set the new image with digest
           kustomize edit set image \
-            ${{ env.IMAGE_NAME }}=${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}@${{ needs.build.outputs.image-digest }}
+            ${{ env.IMAGE_NAME_LOWER }}=${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}@${{ needs.build.outputs.image-digest }}
       - name: Commit Manifest Changes to SCM
         run: |
           git config user.name  "github-actions[bot]"
