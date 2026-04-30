@@ -41,7 +41,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: api
-          image: ghcr.io/ahmed-magdi2712/devsecops-usecase:v1.0.1
+          image: ghcr.io/ahmed-magdi2712/devsecops-usecase@sha256:c69c4a168c7d6dae1b737ff7e5b9f492799e0a92eba36b366040ee2a9f43e584
           imagePullPolicy: Always
           ports:
             - name: http
