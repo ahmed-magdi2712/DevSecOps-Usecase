@@ -35,7 +35,4 @@ configMapGenerator:
   - LOG_LEVEL=debug
   - WORKERS=1
   name: secureapp-config
-images:
-- digest: sha256:f236c1a0b54aec236e1ad25eafa2fa0cea649932fc8e31de9f866dfa293101bb
-  name: ahmed-magdi2712/DevSecOps-Usecase
-  newName: ghcr.io/ahmed-magdi2712/devsecops-usecase
+
