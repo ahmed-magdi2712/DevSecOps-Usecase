@@ -776,7 +776,8 @@ jobs:
   security-summary:
     name: "📋 Security Summary"
     runs-on: ubuntu-latest
-    needs: [lint, test, sonarqube, build, scan, sign, deploy]
+    # needs: [lint, test, sonarqube, build, scan, sign, deploy]
+    needs: [build, scan, sign, deploy]
     if: always()
     steps:
       - name: Generate Security Report
