@@ -36,5 +36,8 @@ configMapGenerator:
   - WORKERS=1
   name: secureapp-config
 images:
+- digest: sha256:6a1108482bddec746fb394daf2f82bcac9dc4a2d6a757cdab7bc760beb5482d1
+  name: ahmed-magdi2712/DevSecOps-Usecase
+  newName: ghcr.io/ahmed-magdi2712/devsecops-usecase
 - digest: sha256:c69c4a168c7d6dae1b737ff7e5b9f492799e0a92eba36b366040ee2a9f43e584
   name: ghcr.io/ahmed-magdi2712/devsecops-usecase
