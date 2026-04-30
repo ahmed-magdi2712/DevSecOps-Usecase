@@ -126,7 +126,7 @@ docker run -p 8000:8000 \
 
 ## Project Structure
 
-```
+```text
 .
 ├── .github/
 │   ├── buildkitd.toml          # Docker BuildKit config
@@ -167,14 +167,8 @@ docker run -p 8000:8000 \
 | Secret | Description |
 |--------|-------------|
 | `SONAR_TOKEN` | SonarQube authentication token |
-| `SONAR_HOST_URL` | SonarQube server URL |
-| `SNYK_TOKEN` | Snyk authentication token |
-| `ANCHORE_URL` | Anchore Enterprise URL |
-| `ANCHORE_USER` | Anchore username |
-| `ANCHORE_PASSWORD` | Anchore password |
 | `ARGOCD_SERVER` | ArgoCD server hostname |
-| `ARGOCD_USERNAME` | ArgoCD username |
-| `ARGOCD_PASSWORD` | ArgoCD password |
+| `ARGOCD_TOKEN` | ArgoCD username |
 | `COSIGN_PRIVATE_KEY` | Cosign private key (optional — keyless used by default) |
 | `COSIGN_PASSWORD` | Cosign private key passphrase |
 
