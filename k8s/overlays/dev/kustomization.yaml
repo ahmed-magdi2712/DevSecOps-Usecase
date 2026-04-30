@@ -27,11 +27,6 @@ patches:
                 limits:
                   cpu: "200m"
                   memory: "256Mi"
-              env:
-                - name: ENVIRONMENT
-                  value: "development"
-                - name: LOG_LEVEL
-                  value: "debug"
 
 configMapGenerator:
 - behavior: merge
