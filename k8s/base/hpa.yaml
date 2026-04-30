@@ -3,7 +3,6 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: secureapp
-  namespace: production
   labels:
     app.kubernetes.io/name: secureapp
 spec:

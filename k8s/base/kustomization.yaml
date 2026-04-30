@@ -5,15 +5,7 @@ kind: Kustomization
 resources:
   - deployment.yaml
   - service.yaml
+  - postgres.yaml
+  - redis.yaml
   - configmap.yaml
-  - secret.yaml
-  - ingress.yaml
-  - hpa.yaml
-  - networkpolicy.yaml
 
-commonLabels:
-  app.kubernetes.io/part-of: devsecops-poc
-  app.kubernetes.io/managed-by: kustomize
-
-commonAnnotations:
-  app.kubernetes.io/version: "1.0.0"

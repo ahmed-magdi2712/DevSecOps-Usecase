@@ -3,7 +3,6 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: secureapp
-  namespace: production
   labels:
     app.kubernetes.io/name: secureapp
   annotations:

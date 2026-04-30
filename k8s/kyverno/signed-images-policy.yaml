@@ -1,0 +1,246 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-signed-images
+  annotations:
+    policies.kyverno.io/title: Require Signed Images
+    policies.kyverno.io/description: >
+      This policy ensures that only container images signed with Cosign
+      can be deployed to the cluster. Images must have a valid signature
+      from the expected identity.
+    pod-policies.kyverno.io/autogen-controllers: "Deployment,DaemonSet,Job,CronJob"
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: verify-cosign-signature
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+                - Job
+                - CronJob
+      preconditions:
+        any:
+          - key: "{{ request.operation }}"
+            operator: In
+            value: ["CREATE", "UPDATE"]
+      verifyImages:
+        - imageReferences:
+            - "ghcr.io/*"
+          attesters:
+            - name: cosign
+              key: |
+                -----BEGIN PUBLIC KEY-----
+                MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEOixdX3w5VtVQxWwK4W3h
+                -----END PUBLIC KEY-----
+          attestations:
+            - predicateType: cosign.sigstore.dev/v1
+              conditions:
+                - key: "{{ body.predicateType }}"
+                  operator: Equal
+                  value: "cosign.sigstore.dev/v1"
+        - imageReferences:
+            - "*"
+          attestation:
+            type: cosign
+      skipBackgroundRequests: true
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-image-signature-dev
+  annotations:
+    policies.kyverno.io/title: Require Signed Images - Development
+    policies.kyverno.io/description: >
+      Requires Cosign-signed images in development namespace.
+    pod-policies.kyverno.io/autogen-controllers: "Deployment,DaemonSet,Job,CronJob"
+spec:
+  validationFailureAction: Enforce
+  background: true
+  match:
+    any:
+      - resources:
+          namespaces:
+            - secureapp-dev
+  rules:
+    - name: verify-cosign-signature-dev
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+                - Job
+                - CronJob
+      preconditions:
+        any:
+          - key: "{{ request.operation }}"
+            operator: In
+            value: ["CREATE", "UPDATE"]
+      verifyImages:
+        - imageReferences:
+            - "ghcr.io/secureapp/*"
+          attestors:
+            - count: 1
+              kind: attestors
+              entries:
+                - keyless:
+                    issuer: "https://token.actions.githubusercontent.com"
+                    subject: "https://github.com/ahmed-devsecops/DevSecOps-POC/.github/workflows/*"
+          skipBackgroundRequests: true
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-image-signature-staging
+  annotations:
+    policies.kyverno.io/title: Require Signed Images - Staging
+    policies.kyverno.io/description: >
+      Requires Cosign-signed images in staging namespace.
+    pod-policies.kyverno.io/autogen-controllers: "Deployment,DaemonSet,Job,CronJob"
+spec:
+  validationFailureAction: Enforce
+  background: true
+  match:
+    any:
+      - resources:
+          namespaces:
+            - secureapp-staging
+  rules:
+    - name: verify-cosign-signature-staging
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+                - Job
+                - CronJob
+      preconditions:
+        any:
+          - key: "{{ request.operation }}"
+            operator: In
+            value: ["CREATE", "UPDATE"]
+      verifyImages:
+        - imageReferences:
+            - "ghcr.io/secureapp/*"
+          attestors:
+            - count: 1
+              kind: attestors
+              entries:
+                - keyless:
+                    issuer: "https://token.actions.githubusercontent.com"
+                    subject: "https://github.com/ahmed-devsecops/DevSecOps-POC/.github/workflows/*"
+          skipBackgroundRequests: true
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-image-signature-prod
+  annotations:
+    policies.kyverno.io/title: Require Signed Images - Production
+    policies.kyverno.io/description: >
+      Requires Cosign-signed images in production namespace with strict validation.
+    pod-policies.kyverno.io/autogen-controllers: "Deployment,DaemonSet,Job,CronJob"
+spec:
+  validationFailureAction: Enforce
+  background: true
+  match:
+    any:
+      - resources:
+          namespaces:
+            - secureapp-prod
+  rules:
+    - name: verify-cosign-signature-prod
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+                - Job
+                - CronJob
+      preconditions:
+        any:
+          - key: "{{ request.operation }}"
+            operator: In
+            value: ["CREATE", "UPDATE"]
+      verifyImages:
+        - imageReferences:
+            - "ghcr.io/secureapp:*"
+          attestors:
+            - count: 1
+              kind: attestors
+              entries:
+                - keyless:
+                    issuer: "https://token.actions.githubusercontent.com"
+                    subject: "https://github.com/ahmed-devsecops/DevSecOps-POC/.github/workflows/*"
+          skipBackgroundRequests: true
+        - imageReferences:
+            - "ghcr.io/secureapp@sha256:*"
+          attestors:
+            - count: 1
+              kind: attestors
+              entries:
+                - keyless:
+                    issuer: "https://token.actions.githubusercontent.com"
+                    subject: "https://github.com/ahmed-devsecops/DevSecOps-POC/.github/workflows/*"
+          skipBackgroundRequests: true
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: block-untrusted-registries
+  annotations:
+    policies.kyverno.io/title: Block Untrusted Registries
+    policies.kyverno.io/description: >
+      Blocks deployment of images from untrusted or public registries.
+    pod-policies.kyverno.io/autogen-controllers: "Deployment,DaemonSet,Job,CronJob"
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: block-public-registries
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+                - Job
+                - CronJob
+      preconditions:
+        any:
+          - key: "{{ request.operation }}"
+            operator: In
+            value: ["CREATE", "UPDATE"]
+      validate:
+        message: "Only images from trusted registries (ghcr.io) are allowed"
+        deny:
+          conditions:
+            any:
+              - key: "{{ request.object.spec.template.spec.containers[].image }}"
+                operator: NotIn
+                value:
+                  - "ghcr.io/*"
+                  - "docker.io/library/*"
+                  - "internal.registry.company.com/*"
+              - key: "{{ request.object.spec.template.spec.initContainers[].image }}"
+                operator: NotIn
+                value:
+                  - "ghcr.io/*"
+                  - "docker.io/library/*"
+                  - "internal.registry.company.com/*"
+        context:
+          - name: imageRegistries
+            variable:
+              value: ["ghcr.io", "docker.io", "internal.registry.company.com"]
