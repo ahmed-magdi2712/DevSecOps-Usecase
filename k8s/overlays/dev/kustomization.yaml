@@ -1,47 +1,42 @@
----
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 namespace: secureapp-dev
 
 resources:
-  - ../../base
+- ../../base
 
 namePrefix: dev-
 
 patches:
-  - patch: |-
-      apiVersion: apps/v1
-      kind: Deployment
-      metadata:
-        name: app
-      spec:
-        replicas: 1
-        template:
-          spec:
-            containers:
-              - name: api
-                resources:
-                  requests:
-                    cpu: "50m"
-                    memory: "128Mi"
-                  limits:
-                    cpu: "200m"
-                    memory: "256Mi"
+- patch: |-
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: app
+    spec:
+      replicas: 1
+      template:
+        spec:
+          containers:
+            - name: api
+              resources:
+                requests:
+                  cpu: "50m"
+                  memory: "128Mi"
+                limits:
+                  cpu: "200m"
+                  memory: "256Mi"
 
 configMapGenerator:
-  - name: secureapp-config
-    behavior: merge
-    literals:
-      - ENVIRONMENT=development
-      - LOG_LEVEL=debug
-      - WORKERS=1
+- behavior: merge
+  literals:
+  - ENVIRONMENT=development
+  - LOG_LEVEL=debug
+  - WORKERS=1
+  name: secureapp-config
 
 images:
-  - name: ghcr.io/ahmed-magdi2712/devsecops-usecase
-    newName: ghcr.io/ahmed-magdi2712/devsecops-usecase
-    digest: sha256:ba7d71ca8054acb52f58d6b5eea05e58a3cda01e6b2cf7dff655912c1716c626
-  - name: ghcr.io/ahmed-magdi2712/devsecops-usecase
-    newName: ghcr.io/ahmed-magdi2712/devsecops-usecase
-    digest: sha256:adf548773d10bf43791d518ba073434813e7d79f23fc44fe8ad8311fcfc9ec49
-
+- digest: sha256:63589c63942568084a8a4718e6e1953a7979df45d3abc2094ecb480114e82849
+  name: ghcr.io/ahmed-magdi2712/devsecops-usecase
+  newName: ghcr.io/ahmed-magdi2712/devsecops-usecase
