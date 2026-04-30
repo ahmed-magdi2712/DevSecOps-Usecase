@@ -39,3 +39,6 @@ images:
 - digest: sha256:ba7d71ca8054acb52f58d6b5eea05e58a3cda01e6b2cf7dff655912c1716c626
   name: ahmed-magdi2712/devsecops-usecase
   newName: ghcr.io/ahmed-magdi2712/devsecops-usecase
+- digest: sha256:da821a63d63e3e291d35682434aa7797d8175136b556b35ed4df71dac688f32c
+  name: ghcr.io/ahmed-magdi2712/devsecops-usecase
+  newName: ghcr.io/ahmed-magdi2712/devsecops-usecase
