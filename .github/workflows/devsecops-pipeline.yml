@@ -612,7 +612,7 @@ jobs:
   deploy:
     name: "🚀 Deploy"
     runs-on: self-hosted
-    needs: [build]
+    needs: [sign, build]
     if: github.ref == 'refs/heads/main'
     steps:
       - name: Checkout code
