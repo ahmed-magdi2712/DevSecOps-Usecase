@@ -4,7 +4,7 @@
 # ============================================================================
 # Note: gcc is a build-time dependency only - not included in final image
 # Version pinning ensures reproducible builds
-FROM python:3.13-slim-bookworm AS builder
+FROM python:3.12-alpine3.23 AS builder
 
 ARG BUILD_DATE
 ARG VCS_REF
@@ -14,17 +14,13 @@ WORKDIR /build
 
 COPY src/app/requirements.txt .
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/* \
-    && pip install --no-cache-dir --upgrade pip==25.3 \
+RUN pip install --no-cache-dir --upgrade pip==25.3 \
     && pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 # ============================================================================
-# Stage 2 – Security runtime
+# Stage 2 – Security runtimedocker
 # ============================================================================
-FROM python:3.13-alpine3.23 AS runtime
+FROM python:3.12-alpine3.23 AS runtime
 
 ARG BUILD_DATE
 ARG VCS_REF

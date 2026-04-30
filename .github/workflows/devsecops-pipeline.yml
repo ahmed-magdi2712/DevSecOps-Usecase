@@ -26,6 +26,7 @@ env:
   IMAGE_NAME: ${{ github.repository }}
   COSIGN_EXPERIMENTAL: "true"
   SYFT_FORMAT: "spdx-json"
+  APP_NAME: secureapp-dev
 
 jobs:
   # ============================================================================
@@ -613,31 +614,28 @@ jobs:
   # ============================================================================
   deploy:
     name: "🚀 Deploy"
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [build, sign]
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')
-    environment:
-      name: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
-      url: ${{ steps.deploy.outputs.url }}
-    outputs:
-      url: ${{ steps.deploy.outputs.url }}
+    if: github.ref == 'refs/heads/main'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GIT_TOKEN_COMMIT }}
+
+      - name: Normalize image name
+        run: echo "IMAGE_NAME_LOWER=$(echo '${{ env.IMAGE_NAME }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
       - name: Determine Environment
         id: env
         run: |
-          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            echo "environment=production" >> $GITHUB_OUTPUT
-            echo "overlay=prod" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.ref }}" == refs/heads/release/* ]]; then
-            echo "environment=staging" >> $GITHUB_OUTPUT
-            echo "overlay=staging" >> $GITHUB_OUTPUT
-          else
-            echo "environment=development" >> $GITHUB_OUTPUT
-            echo "overlay=dev" >> $GITHUB_OUTPUT
-          fi
+          echo "environment=development" >> $GITHUB_OUTPUT
+          echo "overlay=dev" >> $GITHUB_OUTPUT
+
+      - name: Setup Secrets and Project
+        run: |
+          kustomize build k8s/vault-eso | kubectl apply -f -
 
       - name: Update Kubernetes Manifests
         run: |
@@ -646,54 +644,32 @@ jobs:
 
           # Set the new image with digest
           kustomize edit set image \
-            ${{ env.IMAGE_NAME }}=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }}
+            ${{ env.IMAGE_NAME }}=${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}@${{ needs.build.outputs.image-digest }}
+      - name: Commit Manifest Changes to SCM
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Add annotations for signed image
-          cat > patch-signature.yaml << EOF
-          apiVersion: apps/v1
-          kind: Deployment
-          metadata:
-            name: app
-            annotations:
-              image.openshift.io/trusted: "true"
-              cosign.sigstore.dev/verified: "true"
-              slsa.provenance: "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }}"
-          spec:
-            template:
-              metadata:
-                annotations:
-                  image.openshift.io/trusted: "true"
-          EOF
+          git add k8s/overlays/${{ steps.env.outputs.overlay }}/
 
-          # Update kustomization to include patches
-          if ! grep -q "patch-signature.yaml" kustomization.yaml; then
-            echo "- patch-signature.yaml" >> kustomization.yaml
+          # Only commit if there are actual changes
+          if git diff --staged --quiet; then
+            echo "No manifest changes to commit"
+          else
+            git commit -m "chore(deploy): promote image ${{ env.IMAGE_NAME_LOWER }} to ${{ needs.build.outputs.image-digest }} [skip ci]
+
+            Image       : ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}@${{ needs.build.outputs.image-digest }}
+            Actor       : ${{ github.actor }}
+            Run         : ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            Commit      : ${{ github.sha }}
+            Ref         : ${{ github.ref }}"
+
+            git push origin HEAD:${{ github.ref_name }}
           fi
 
-      - name: Generate Final Manifests
+      - name: Port-forward ArgoCD Server
         run: |
-          kustomize build k8s/overlays/${{ steps.env.outputs.overlay }} > deployed-manifests.yaml
-          cat deployed-manifests.yaml
-
-      - name: Verify Image Signature Before Deploy
-        uses: sigstore/cosign-installer@v3
-        with:
-          cosign-release: 'v2.2.4'
-
-      - name: Pre-deploy Signature Verification
-        run: |
-          # Verify the image is signed before deploying
-          cosign verify \
-            --certificate-identity="${{ github.actor }}" \
-            --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }}
-
-      - name: Configure ArgoCD
-        run: |
-          # Install ArgoCD CLI
-          curl -sL https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64 -o argocd
-          chmod +x argocd
-          sudo mv argocd /usr/local/bin/
+          kubectl port-forward -n argocd services/argocd-server 8080:80 &
 
       - name: Login to ArgoCD
         run: |
@@ -701,12 +677,9 @@ jobs:
             --username ${{ secrets.ARGOCD_USERNAME }} \
             --password ${{ secrets.ARGOCD_PASSWORD }} \
             --insecure
-
       - name: Sync ArgoCD Application
         id: deploy
         run: |
-          APP_NAME="${{ github.event.repository.name }}-${{ steps.env.outputs.environment }}"
-
           # Trigger sync with retry
           MAX_RETRIES=3
           RETRY_COUNT=0
@@ -714,7 +687,7 @@ jobs:
           while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
             echo "Attempt $((RETRY_COUNT + 1)) of $MAX_RETRIES"
 
-            if argocd app sync $APP_NAME --revision HEAD --force --timeout 300; then
+            if argocd app sync ${{ env.APP_NAME }} --revision HEAD --force --timeout 300; then
               echo "Sync initiated successfully"
               break
             fi
@@ -728,41 +701,36 @@ jobs:
 
       - name: Wait for ArgoCD Sync
         run: |
-          APP_NAME="${{ github.event.repository.name }}-${{ steps.env.outputs.environment }}"
-
           # Wait for sync to complete
-          argocd app wait $APP_NAME \
+          argocd app wait ${{ env.APP_NAME }} \
             --health \
             --sync \
             --timeout 600
 
       - name: Get Application Status
         run: |
-          APP_NAME="${{ github.event.repository.name }}-${{ steps.env.outputs.environment }}"
-
           echo "## 🚀 Deployment Status" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           # Get app status
-          argocd app get $APP_NAME -o wide >> $GITHUB_STEP_SUMMARY
+          argocd app get ${{ env.APP_NAME }} -o wide >> $GITHUB_STEP_SUMMARY
 
           # Get health status
-          HEALTH=$(argocd app get $APP_NAME -o json | jq -r '.status.health.status')
-          SYNC=$(argocd app get $APP_NAME -o json | jq -r '.status.sync.status')
+          HEALTH=$(argocd app get ${{ env.APP_NAME }} -o json | jq -r '.status.health.status')
+          SYNC=$(argocd app get ${{ env.APP_NAME }} -o json | jq -r '.status.sync.status')
 
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Status | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
           echo "| Health | $HEALTH |" >> $GITHUB_STEP_SUMMARY
           echo "| Sync | $SYNC |" >> $GITHUB_STEP_SUMMARY
-          echo "| Image | ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Image | ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}@${{ needs.build.outputs.image-digest }} |" >> $GITHUB_STEP_SUMMARY
 
       - name: Post-deploy Health Check
         run: |
-          APP_NAME="${{ github.event.repository.name }}-${{ steps.env.outputs.environment }}"
 
           # Get the service URL
-          URL=$(argocd app get $APP_NAME -o json | \
+          URL=$(argocd app get ${{ env.APP_NAME }} -o json | \
             jq -r '.status.summary.externalURLs[0] // "unknown"')
 
           if [[ "$URL" != "unknown" && "$URL" != "null" ]]; then
