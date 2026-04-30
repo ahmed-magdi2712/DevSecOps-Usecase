@@ -670,10 +670,12 @@ jobs:
           kubectl port-forward -n argocd services/argocd-server 8080:80 &
 
       - name: Login to ArgoCD
+        env:
+          ARGOCD_TOKEN: ${{ secrets.ARGOCD_TOKEN }}
+          ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
         run: |
-          argocd login ${{ secrets.ARGOCD_SERVER }} \
-            --username ${{ secrets.ARGOCD_USERNAME }} \
-            --password ${{ secrets.ARGOCD_PASSWORD }} \
+          argocd login $ARGOCD_SERVER \
+            --auth-token $ARGOCD_TOKEN \
             --insecure
       - name: Sync ArgoCD Application
         id: deploy
@@ -748,8 +750,6 @@ jobs:
       - name: Rollback on Failure
         if: failure()
         run: |
-          APP_NAME="${{ github.event.repository.name }}-${{ steps.env.outputs.environment }}"
-
           echo "🚨 Deployment failed, initiating rollback..."
           argocd app rollback $APP_NAME
           argocd app wait $APP_NAME --health --sync --timeout 300
@@ -757,7 +757,6 @@ jobs:
       - name: Notify Deployment
         if: always()
         run: |
-          APP_NAME="${{ github.event.repository.name }}-${{ steps.env.outputs.environment }}"
           STATUS=${{ job.status }}
 
           if [[ "$STATUS" == "success" ]]; then
@@ -768,7 +767,7 @@ jobs:
             MESSAGE="Deployment failed"
           fi
 
-          echo "$EMOJI $MESSAGE to ${{ steps.env.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "$EMOJI $MESSAGE" >> $GITHUB_STEP_SUMMARY
 
   # ============================================================================
   # SECURITY SUMMARY
