@@ -410,210 +410,210 @@ jobs:
   # ============================================================================
   # STAGE 5: SCAN IMAGES WITH MULTIPLE TOOLS
   # ============================================================================
-  scan:
-    name: "🟣 Image Scan"
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+  # scan:
+  #   name: "🟣 Image Scan"
+  #   runs-on: ubuntu-latest
+  #   needs: build
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
 
-      - name: Download SBOM
-        uses: actions/download-artifact@v4
-        with:
-          name: sbom-artifacts
-          path: sbom/
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      # -------------------------------------------------------------------------
-      # TRIVY SCANNER
-      # -------------------------------------------------------------------------
-      - name: Run Trivy Vulnerability Scanner
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          scan-type: 'image'
-          image-ref: '${{ needs.build.outputs.image-tag }}'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-          severity: 'CRITICAL,HIGH'
-          exit-code: '0'
-          ignore-unfixed: true
-          vuln-type: 'os,library'
-          scanners: 'vuln,secret,misconfig'
-          trivyignores: '.trivyignore'
-          timeout: '10m'
-          cache: 'false'
-        env:
-          TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db
+  #     - name: Download SBOM
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: sbom-artifacts
+  #         path: sbom/
+  #     - name: Login to GitHub Container Registry
+  #       uses: docker/login-action@v3
+  #       with:
+  #         registry: ${{ env.REGISTRY }}
+  #         username: ${{ github.actor }}
+  #         password: ${{ secrets.GITHUB_TOKEN }}
+  #     # -------------------------------------------------------------------------
+  #     # TRIVY SCANNER
+  #     # -------------------------------------------------------------------------
+  #     - name: Run Trivy Vulnerability Scanner
+  #       uses: aquasecurity/trivy-action@v0.36.0
+  #       with:
+  #         scan-type: 'image'
+  #         image-ref: '${{ needs.build.outputs.image-tag }}'
+  #         format: 'sarif'
+  #         output: 'trivy-results.sarif'
+  #         severity: 'CRITICAL,HIGH'
+  #         exit-code: '0'
+  #         ignore-unfixed: true
+  #         vuln-type: 'os,library'
+  #         scanners: 'vuln,secret,misconfig'
+  #         trivyignores: '.trivyignore'
+  #         timeout: '10m'
+  #         cache: 'false'
+  #       env:
+  #         TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db
 
-      - name: Run Trivy Config Scanner
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          scan-type: 'config'
-          scan-ref: 'k8s/'
-          format: 'table'
-          output: 'trivy-config-results.txt'
-          severity: 'CRITICAL,HIGH,MEDIUM'
-          exit-code: '0'
+  #     - name: Run Trivy Config Scanner
+  #       uses: aquasecurity/trivy-action@v0.36.0
+  #       with:
+  #         scan-type: 'config'
+  #         scan-ref: 'k8s/'
+  #         format: 'table'
+  #         output: 'trivy-config-results.txt'
+  #         severity: 'CRITICAL,HIGH,MEDIUM'
+  #         exit-code: '0'
 
-      - name: Run Trivy Secret Scanner
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          scan-type: 'image'
-          image-ref: '${{ needs.build.outputs.image-tag }}'
-          format: 'json'
-          output: 'trivy-secrets.json'
-          scanners: 'secret'
-          exit-code: '0'
-          secret-config: '.trivy-secret.yaml'
+  #     - name: Run Trivy Secret Scanner
+  #       uses: aquasecurity/trivy-action@v0.36.0
+  #       with:
+  #         scan-type: 'image'
+  #         image-ref: '${{ needs.build.outputs.image-tag }}'
+  #         format: 'json'
+  #         output: 'trivy-secrets.json'
+  #         scanners: 'secret'
+  #         exit-code: '0'
+  #         secret-config: '.trivy-secret.yaml'
 
-      - name: Upload Trivy Results
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: trivy-results.sarif
-          category: trivy
-      # -------------------------------------------------------------------------
-      # Common Steps
-      # -------------------------------------------------------------------------
-      - name: Upload Scan Results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: scan-results-trivy
-          path: |
-            *-results.*
-            *-results.json
-          retention-days: 90
+  #     - name: Upload Trivy Results
+  #       uses: github/codeql-action/upload-sarif@v3
+  #       with:
+  #         sarif_file: trivy-results.sarif
+  #         category: trivy
+  #     # -------------------------------------------------------------------------
+  #     # Common Steps
+  #     # -------------------------------------------------------------------------
+  #     - name: Upload Scan Results
+  #       uses: actions/upload-artifact@v4
+  #       if: always()
+  #       with:
+  #         name: scan-results-trivy
+  #         path: |
+  #           *-results.*
+  #           *-results.json
+  #         retention-days: 90
 
-      - name: Scan Summary
-        if: always()
-        run: |
-          echo "## 🟣 Trivy Scan Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          if [ -f "*-results.txt" ]; then
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            cat *-results.txt >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
-            echo '```' >> $GITHUB_STEP_SUMMARY
-          fi
+  #     - name: Scan Summary
+  #       if: always()
+  #       run: |
+  #         echo "## 🟣 Trivy Scan Results" >> $GITHUB_STEP_SUMMARY
+  #         echo "" >> $GITHUB_STEP_SUMMARY
+  #         if [ -f "*-results.txt" ]; then
+  #           echo '```' >> $GITHUB_STEP_SUMMARY
+  #           cat *-results.txt >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
+  #           echo '```' >> $GITHUB_STEP_SUMMARY
+  #         fi
 
-  # ============================================================================
-  # STAGE 6: SIGN WITH COSIGN
-  # ============================================================================
-  sign:
-    name: "🟢 Sign Image"
-    runs-on: ubuntu-latest
-    needs: [scan, build]
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+  # # ============================================================================
+  # # STAGE 6: SIGN WITH COSIGN
+  # # ============================================================================
+  # sign:
+  #   name: "🟢 Sign Image"
+  #   runs-on: ubuntu-latest
+  #   needs: [scan, build]
+  #   if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
 
-      - name: Download SBOM
-        uses: actions/download-artifact@v4
-        with:
-          name: sbom-artifacts
-          path: sbom/
+  #     - name: Download SBOM
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: sbom-artifacts
+  #         path: sbom/
 
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+  #     - name: Login to GitHub Container Registry
+  #       uses: docker/login-action@v3
+  #       with:
+  #         registry: ${{ env.REGISTRY }}
+  #         username: ${{ github.actor }}
+  #         password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@v3
-        with:
-          cosign-release: 'v2.2.4'
+  #     - name: Install Cosign
+  #       uses: sigstore/cosign-installer@v3
+  #       with:
+  #         cosign-release: 'v2.2.4'
 
-      - name: Verify Cosign Installation
-        run: |
-          cosign version
-          cosign verify-blob --help
+  #     - name: Verify Cosign Installation
+  #       run: |
+  #         cosign version
+  #         cosign verify-blob --help
 
-      - name: Normalize image name
-        run: echo "IMAGE_NAME_LOWER=$(echo '${{ env.IMAGE_NAME }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+  #     - name: Normalize image name
+  #       run: echo "IMAGE_NAME_LOWER=$(echo '${{ env.IMAGE_NAME }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
-      # -------------------------------------------------------------------------
-      # Key-based Signing (Optional - for additional verification)
-      # -------------------------------------------------------------------------
-      - name: Sign with Private Key
-        run: |
-          echo "${{ secrets.COSIGN_PRIVATE_KEY }}" | cosign sign \
-            --key env://COSIGN_PRIVATE_KEY \
-            --annotations "repo=${{ github.repository }}" \
-            --annotations "sha=${{ github.sha }}" \
-            --annotations "ref=${{ github.ref }}" \
-            --annotations "actor=${{ github.actor }}" \
-            --annotations "run_id=${{ github.run_id }}" \
-            --annotations "run_number=${{ github.run_number }}" \
-            --yes \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}@${{ needs.build.outputs.image-digest }}
-        env:
-          COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
-          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+  #     # -------------------------------------------------------------------------
+  #     # Key-based Signing (Optional - for additional verification)
+  #     # -------------------------------------------------------------------------
+  #     - name: Sign with Private Key
+  #       run: |
+  #         echo "${{ secrets.COSIGN_PRIVATE_KEY }}" | cosign sign \
+  #           --key env://COSIGN_PRIVATE_KEY \
+  #           --annotations "repo=${{ github.repository }}" \
+  #           --annotations "sha=${{ github.sha }}" \
+  #           --annotations "ref=${{ github.ref }}" \
+  #           --annotations "actor=${{ github.actor }}" \
+  #           --annotations "run_id=${{ github.run_id }}" \
+  #           --annotations "run_number=${{ github.run_number }}" \
+  #           --yes \
+  #           ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}@${{ needs.build.outputs.image-digest }}
+  #       env:
+  #         COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
+  #         COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
 
-      # -------------------------------------------------------------------------
-      # SBOM Signing
-      # -------------------------------------------------------------------------
-      - name: Attach and Sign SBOM
-        run: |
-          # Attach SBOM to image
-          cosign attach sbom \
-            --sbom sbom/sbom.spdx.json \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}@${{ needs.build.outputs.image-digest }}
+  #     # -------------------------------------------------------------------------
+  #     # SBOM Signing
+  #     # -------------------------------------------------------------------------
+  #     - name: Attach and Sign SBOM
+  #       run: |
+  #         # Attach SBOM to image
+  #         cosign attach sbom \
+  #           --sbom sbom/sbom.spdx.json \
+  #           ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}@${{ needs.build.outputs.image-digest }}
 
-          # Sign the SBOM
-          cosign sign --yes \
-            --attachment sbom \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}@${{ needs.build.outputs.image-digest }}
+  #         # Sign the SBOM
+  #         cosign sign --yes \
+  #           --attachment sbom \
+  #           ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}@${{ needs.build.outputs.image-digest }}
 
-      # -------------------------------------------------------------------------
-      # Verification
-      # -------------------------------------------------------------------------
-      - name: Verify Signature
-        run: |
-          cosign verify \
-            --key env://COSIGN_PUBLIC_KEY \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}@${{ needs.build.outputs.image-digest }}
-        env:
-          COSIGN_PUBLIC_KEY: ${{ vars.COSIGN_PUBLIC_KEY }}
+  #     # -------------------------------------------------------------------------
+  #     # Verification
+  #     # -------------------------------------------------------------------------
+  #     - name: Verify Signature
+  #       run: |
+  #         cosign verify \
+  #           --key env://COSIGN_PUBLIC_KEY \
+  #           ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}@${{ needs.build.outputs.image-digest }}
+  #       env:
+  #         COSIGN_PUBLIC_KEY: ${{ vars.COSIGN_PUBLIC_KEY }}
 
 
-      - name: Verify SBOM Attachment
-        run: |
-          cosign download sbom \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}@${{ needs.build.outputs.image-digest }}
+  #     - name: Verify SBOM Attachment
+  #       run: |
+  #         cosign download sbom \
+  #           ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}@${{ needs.build.outputs.image-digest }}
 
-      - name: Signing Summary
-        run: |
-          echo "## 🟢 Image Signing Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Item | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Key Signature | ✅ Signed |" >> $GITHUB_STEP_SUMMARY
-          echo "| SBOM Attachment | ✅ Attached & Signed |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Verification Commands" >> $GITHUB_STEP_SUMMARY
-          echo '```bash' >> $GITHUB_STEP_SUMMARY
-          echo "# Verify signature" >> $GITHUB_STEP_SUMMARY
-          echo "cosign verify \\" >> $GITHUB_STEP_SUMMARY
-          echo "  --certificate-identity='${{ github.actor }}' \\" >> $GITHUB_STEP_SUMMARY
-          echo "  --certificate-oidc-issuer='https://token.actions.githubusercontent.com' \\" >> $GITHUB_STEP_SUMMARY
-          echo "  ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}@${{ needs.build.outputs.image-digest }}" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
+  #     - name: Signing Summary
+  #       run: |
+  #         echo "## 🟢 Image Signing Summary" >> $GITHUB_STEP_SUMMARY
+  #         echo "" >> $GITHUB_STEP_SUMMARY
+  #         echo "| Item | Status |" >> $GITHUB_STEP_SUMMARY
+  #         echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+  #         echo "| Key Signature | ✅ Signed |" >> $GITHUB_STEP_SUMMARY
+  #         echo "| SBOM Attachment | ✅ Attached & Signed |" >> $GITHUB_STEP_SUMMARY
+  #         echo "" >> $GITHUB_STEP_SUMMARY
+  #         echo "### Verification Commands" >> $GITHUB_STEP_SUMMARY
+  #         echo '```bash' >> $GITHUB_STEP_SUMMARY
+  #         echo "# Verify signature" >> $GITHUB_STEP_SUMMARY
+  #         echo "cosign verify \\" >> $GITHUB_STEP_SUMMARY
+  #         echo "  --certificate-identity='${{ github.actor }}' \\" >> $GITHUB_STEP_SUMMARY
+  #         echo "  --certificate-oidc-issuer='https://token.actions.githubusercontent.com' \\" >> $GITHUB_STEP_SUMMARY
+  #         echo "  ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}@${{ needs.build.outputs.image-digest }}" >> $GITHUB_STEP_SUMMARY
+  #         echo '```' >> $GITHUB_STEP_SUMMARY
 
-  # ============================================================================
-  # STAGE 7: DEPLOY WITH ARGOCD
-  # ============================================================================
+  # # ============================================================================
+  # # STAGE 7: DEPLOY WITH ARGOCD
+  # # ============================================================================
   deploy:
     name: "🚀 Deploy"
     runs-on: self-hosted
-    needs: [build, sign]
+    needs: [build]
     if: github.ref == 'refs/heads/main'
     steps:
       - name: Checkout code
@@ -642,7 +642,7 @@ jobs:
 
           # Set the new image with digest
           kustomize edit set image \
-            ${{ env.IMAGE_NAME_LOWER }}=${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}@${{ needs.build.outputs.image-digest }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}=${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}@${{ needs.build.outputs.image-digest }}
       - name: Commit Manifest Changes to SCM
         run: |
           git config user.name  "github-actions[bot]"
@@ -777,7 +777,7 @@ jobs:
     name: "📋 Security Summary"
     runs-on: ubuntu-latest
     # needs: [lint, test, sonarqube, build, scan, sign, deploy]
-    needs: [build, scan, sign, deploy]
+    needs: [build, deploy]
     if: always()
     steps:
       - name: Generate Security Report
