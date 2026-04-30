@@ -448,6 +448,7 @@ jobs:
           scanners: 'vuln,secret,misconfig'
           trivyignores: '.trivyignore'
           timeout: '10m'
+          cache: 'false'
         env:
           TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db
 
