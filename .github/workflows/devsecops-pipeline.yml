@@ -668,17 +668,11 @@ jobs:
       - name: Port-forward ArgoCD Server
         run: |
           kubectl port-forward -n argocd services/argocd-server 8080:80 &
-
-      - name: Login to ArgoCD
+      - name: Sync ArgoCD Application
+        id: deploy
         env:
           ARGOCD_TOKEN: ${{ secrets.ARGOCD_TOKEN }}
           ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
-        run: |
-          argocd login $ARGOCD_SERVER \
-            --auth-token $ARGOCD_TOKEN \
-            --insecure
-      - name: Sync ArgoCD Application
-        id: deploy
         run: |
           # Trigger sync with retry
           MAX_RETRIES=3
@@ -687,7 +681,7 @@ jobs:
           while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
             echo "Attempt $((RETRY_COUNT + 1)) of $MAX_RETRIES"
 
-            if argocd app sync ${{ env.APP_NAME }} --revision HEAD --force --timeout 300; then
+            if argocd app sync ${{ env.APP_NAME }} --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN  --insecure --revision HEAD --force --timeout 300; then
               echo "Sync initiated successfully"
               break
             fi
@@ -703,6 +697,7 @@ jobs:
         run: |
           # Wait for sync to complete
           argocd app wait ${{ env.APP_NAME }} \
+            --server $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN  --insecure \
             --health \
             --sync \
             --timeout 600
@@ -725,34 +720,6 @@ jobs:
           echo "| Health | $HEALTH |" >> $GITHUB_STEP_SUMMARY
           echo "| Sync | $SYNC |" >> $GITHUB_STEP_SUMMARY
           echo "| Image | ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}@${{ needs.build.outputs.image-digest }} |" >> $GITHUB_STEP_SUMMARY
-
-      - name: Post-deploy Health Check
-        run: |
-
-          # Get the service URL
-          URL=$(argocd app get ${{ env.APP_NAME }} -o json | \
-            jq -r '.status.summary.externalURLs[0] // "unknown"')
-
-          if [[ "$URL" != "unknown" && "$URL" != "null" ]]; then
-            echo "url=$URL" >> $GITHUB_OUTPUT
-
-            # Health check
-            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 "$URL/health" || echo "000")
-
-            if [[ "$HTTP_CODE" == "200" ]]; then
-              echo "✅ Health check passed (HTTP $HTTP_CODE)"
-            else
-              echo "⚠️ Health check returned HTTP $HTTP_CODE"
-            fi
-          fi
-        id: health
-
-      - name: Rollback on Failure
-        if: failure()
-        run: |
-          echo "🚨 Deployment failed, initiating rollback..."
-          argocd app rollback $APP_NAME
-          argocd app wait $APP_NAME --health --sync --timeout 300
 
       - name: Notify Deployment
         if: always()
