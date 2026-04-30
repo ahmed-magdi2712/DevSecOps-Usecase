@@ -437,8 +437,8 @@ jobs:
         with:
           scan-type: 'image'
           image-ref: '${{ needs.build.outputs.image-tag }}'
-          format: 'table'
-          # output: 'trivy-results.sarif'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
           exit-code: '1'
           ignore-unfixed: true
