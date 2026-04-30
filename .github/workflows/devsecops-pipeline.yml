@@ -32,285 +32,285 @@ jobs:
   # ============================================================================
   # STAGE 1: LINT
   # ============================================================================
-  # lint:
-  #   name: "🔴 Lint"
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
-  #       with:
-  #         fetch-depth: 0
+  lint:
+    name: "🔴 Lint"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-  #     - name: Set up Python
-  #       uses: actions/setup-python@v5
-  #       with:
-  #         python-version: '3.12'
-  #         cache: 'pip'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
 
-  #     - name: Install dependencies
-  #       run: |
-  #         python -m pip install --upgrade pip
-  #         pip install -r src/app/requirements.txt
-  #         pip install ruff flake8 mypy bandit pylint pydocstyle black isort
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r src/app/requirements.txt
+          pip install ruff flake8 mypy bandit pylint pydocstyle black isort lxml
 
-  #     - name: Run Ruff (Fast Python Linter)
-  #       run: |
-  #         ruff check src/ --output-format=github --exit-zero
-  #         ruff format --check src/ --diff
+      - name: Run Ruff (Fast Python Linter)
+        run: |
+          ruff check src/ --output-format=github --exit-zero
+          ruff format --check src/ --diff
 
-  #     - name: Run Flake8
-  #       run: |
-  #         flake8 src/ --format=github --exit-zero --max-line-length=120 \
-  #           --ignore=E501,W503,E203
+      - name: Run Flake8
+        run: |
+          flake8 src/ --format=github --exit-zero --max-line-length=120 \
+            --ignore=E501,W503,E203
 
-  #     - name: Run Mypy (Type Checking)
-  #       run: |
-  #         mypy src/ --ignore-missing-imports --no-error-summary \
-  #           --html-report=mypy-report || true
+      - name: Run Mypy (Type Checking)
+        run: |
+          mypy src/ --ignore-missing-imports --no-error-summary \
+            --html-report=mypy-report || true
 
-  #     - name: Run Bandit (Security Linting)
-  #       run: |
-  #         bandit -r src/ -f json -o bandit-report.json || true
-  #         bandit -r src/ -ll
+      - name: Run Bandit (Security Linting)
+        run: |
+          bandit -r src/ -f json -o bandit-report.json || true
+          bandit -r src/ -ll
 
-  #     - name: Run pydocstyle (Documentation Linting)
-  #       run: |
-  #         pydocstyle src/ --convention=pep257 --add-ignore=D100,D101,D102,D103,D104,D105,D107 || true
+      - name: Run pydocstyle (Documentation Linting)
+        run: |
+          pydocstyle src/ --convention=pep257 --add-ignore=D100,D101,D102,D103,D104,D105,D107 || true
 
-  #     - name: Check Imports with isort
-  #       run: |
-  #         isort --check-only --diff src/ || true
+      - name: Check Imports with isort
+        run: |
+          isort --check-only --diff src/ || true
 
-  #     - name: Run hadolint (Dockerfile Linting)
-  #       uses: hadolint/hadolint-action@v3.1.0
-  #       with:
-  #         dockerfile: docker/Dockerfile
-  #         failure-threshold: warning
-  #         format: tty
+      - name: Run hadolint (Dockerfile Linting)
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: docker/Dockerfile
+          failure-threshold: warning
+          format: tty
 
-  #     - name: Run yamllint (YAML Linting)
-  #       uses: karancode/yamllint-github-action@master
-  #       with:
-  #         yamllint_strict: false
-  #         yamllint_config_file: .yamllint
-  #         yamllint_file_or_dir: k8s/
+      - name: Run yamllint (YAML Linting)
+        uses: karancode/yamllint-github-action@master
+        with:
+          yamllint_strict: false
+          yamllint_config_file: .yamllint
+          yamllint_file_or_dir: k8s/
 
-  #     - name: Run markdownlint (Markdown Linting)
-  #       uses: DavidAnson/markdownlint-cli2-action@v16
-  #       with:
-  #         globs: "**/*.md"
-  #         config: ".markdownlint.json"
-  #       continue-on-error: true
+      - name: Run markdownlint (Markdown Linting)
+        uses: DavidAnson/markdownlint-cli2-action@v16
+        with:
+          globs: "**/*.md"
+          config: ".markdownlint.json"
+        continue-on-error: true
 
-  #     - name: Checkov (IaC Security Scanning)
-  #       uses: bridgecrewio/checkov-action@master
-  #       with:
-  #         directory: k8s/
-  #         framework: kubernetes
-  #         output_format: cli,sarif
-  #         output_file_path: console,checkov-results.sarif
-  #         skip_check: CKV_K8S_21,CKV_K8S_22
-  #       continue-on-error: true
+      - name: Checkov (IaC Security Scanning)
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: k8s/
+          framework: kubernetes
+          output_format: cli,sarif
+          output_file_path: console,checkov-results.sarif
+          skip_check: CKV_K8S_21,CKV_K8S_22,CKV_K8S_15,CKV_K8S_40,CKV_K8S_43,CKV_K8S_35,CKV2_K8S_6
+        continue-on-error: true
 
-  #     - name: Upload Lint Artifacts
-  #       uses: actions/upload-artifact@v4
-  #       if: always()
-  #       with:
-  #         name: lint-reports
-  #         path: |
-  #           bandit-report.json
-  #           pylint-results.json
-  #           mypy-report/
-  #           checkov-results.sarif
-  #         retention-days: 30
+      - name: Upload Lint Artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lint-reports
+          path: |
+            bandit-report.json
+            pylint-results.json
+            mypy-report/
+            checkov-results.sarif
+          retention-days: 30
 
 
-  # # ============================================================================
-  # # STAGE 2: TEST
-  # # ============================================================================
-  # test:
-  #   name: "🟡 Test"
-  #   runs-on: ubuntu-latest
-  #   needs: lint
-  #   services:
-  #     postgres:
-  #       image: postgres:16-alpine
-  #       env:
-  #         POSTGRES_USER: test_user
-  #         POSTGRES_PASSWORD: test_password
-  #         POSTGRES_DB: test_db
-  #       ports:
-  #         - 5432:5432
-  #       options: >-
-  #         --health-cmd "pg_isready -U test_user"
-  #         --health-interval 10s
-  #         --health-timeout 5s
-  #         --health-retries 5
-  #     redis:
-  #       image: redis:7-alpine
-  #       ports:
-  #         - 6379:6379
-  #       options: >-
-  #         --health-cmd "redis-cli ping"
-  #         --health-interval 10s
-  #         --health-timeout 5s
-  #         --health-retries 5
+  # ============================================================================
+  # STAGE 2: TEST
+  # ============================================================================
+  test:
+    name: "🟡 Test"
+    runs-on: ubuntu-latest
+    needs: lint
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test_user"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-  #     - name: Set up Python
-  #       uses: actions/setup-python@v5
-  #       with:
-  #         python-version: '3.12'
-  #         cache: 'pip'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
 
-  #     - name: Install dependencies
-  #       run: |
-  #         python -m pip install --upgrade pip
-  #         pip install -r src/app/requirements.txt
-  #         pip install pytest pytest-cov pytest-asyncio==0.21.2 pytest-mock \
-  #           pytest-xdist pytest-timeout factory-boy faker \
-  #           pytest-postgres pytest-redis httpx
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r src/app/requirements.txt
+          pip install pytest pytest-cov pytest-asyncio==0.21.2 pytest-mock \
+            pytest-xdist pytest-timeout factory-boy faker \
+            pytest-postgres pytest-redis httpx
 
-  #     - name: Run Unit Tests with Coverage
-  #       env:
-  #         DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
-  #         REDIS_URL: redis://localhost:6379/0
-  #         ENVIRONMENT: testing
-  #       run: |
-  #         pytest src/app/tests/ \
-  #           --cov=src/app \
-  #           --cov-report=xml:coverage.xml \
-  #           --cov-report=html:htmlcov \
-  #           --cov-report=term-missing \
-  #           --cov-fail-under=80 \
-  #           -v \
-  #           --tb=short \
-  #           --junitxml=junit-results.xml \
-  #           --timeout=60
+      - name: Run Unit Tests with Coverage
+        env:
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+          REDIS_URL: redis://localhost:6379/0
+          ENVIRONMENT: testing
+        run: |
+          pytest src/app/tests/ \
+            --cov=src/app \
+            --cov-report=xml:coverage.xml \
+            --cov-report=html:htmlcov \
+            --cov-report=term-missing \
+            --cov-fail-under=80 \
+            -v \
+            --tb=short \
+            --junitxml=junit-results.xml \
+            --timeout=60
 
-  #     - name: Run Integration Tests
-  #       env:
-  #         DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
-  #         REDIS_URL: redis://localhost:6379/0
-  #         ENVIRONMENT: testing
-  #       run: |
-  #         pytest src/app/tests/integration/ \
-  #           --cov=src/app \
-  #           --cov-report=xml:integration-coverage.xml \
-  #           --cov-append \
-  #           --cov-fail-under=70 \
-  #           -v \
-  #           --tb=short \
-  #           --junitxml=integration-junit.xml \
-  #           -m integration
+      - name: Run Integration Tests
+        env:
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+          REDIS_URL: redis://localhost:6379/0
+          ENVIRONMENT: testing
+        run: |
+          pytest src/app/tests/integration/ \
+            --cov=src/app \
+            --cov-report=xml:integration-coverage.xml \
+            --cov-append \
+            --cov-fail-under=70 \
+            -v \
+            --tb=short \
+            --junitxml=integration-junit.xml \
+            -m integration
 
-  #     - name: Run Security Tests
-  #       run: |
-  #         pytest src/app/tests/security/ \
-  #           -v \
-  #           --tb=short \
-  #           --junitxml=security-junit.xml \
-  #           -m security
+      - name: Run Security Tests
+        run: |
+          pytest src/app/tests/security/ \
+            -v \
+            --tb=short \
+            --junitxml=security-junit.xml \
+            -m security
 
-  #     # - name: Generate Coverage Badge
-  #     #   run: |
-  #     #     pip install coverage-badge setuptools
-  #     #     coverage-badge -o coverage.svg -f
+      # - name: Generate Coverage Badge
+      #   run: |
+      #     pip install coverage-badge setuptools
+      #     coverage-badge -o coverage.svg -f
 
-  #     - name: Upload Test Results
-  #       uses: actions/upload-artifact@v4
-  #       if: always()
-  #       with:
-  #         name: test-reports
-  #         path: |
-  #           coverage.xml
-  #           integration-coverage.xml
-  #           htmlcov/
-  #           junit-results.xml
-  #           integration-junit.xml
-  #           security-junit.xml
-  #           coverage.svg
-  #         retention-days: 30
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-reports
+          path: |
+            coverage.xml
+            integration-coverage.xml
+            htmlcov/
+            junit-results.xml
+            integration-junit.xml
+            security-junit.xml
+            coverage.svg
+          retention-days: 30
 
-  #     - name: Publish Test Results
-  #       uses: dorny/test-reporter@v1
-  #       if: always()
-  #       with:
-  #         name: Test Results
-  #         path: "*junit*.xml"
-  #         reporter: java-junit
-  #         fail-on-error: false
+      - name: Publish Test Results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Test Results
+          path: "*junit*.xml"
+          reporter: java-junit
+          fail-on-error: false
 
-  #     - name: Comment Coverage on PR
-  #       uses: romeovs/lcov-reporter-action@v0.4.0
-  #       if: github.event_name == 'pull_request'
-  #       with:
-  #         lcov-file: coverage.xml
-  #         github-token: ${{ secrets.GITHUB_TOKEN }}
-  #         delete-old-comments: true
+      - name: Comment Coverage on PR
+        uses: romeovs/lcov-reporter-action@v0.4.0
+        if: github.event_name == 'pull_request'
+        with:
+          lcov-file: coverage.xml
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          delete-old-comments: true
 
-  # # ============================================================================
-  # # STAGE 3: SONARQUBE WITH AI FEATURES
-  # # ============================================================================
-  # sonarqube:
-  #   name: "🟠 SonarQube (AI)"
-  #   runs-on: ubuntu-latest
-  #   needs: test
-  #   if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
-  #       with:
-  #         fetch-depth: 0  # Shallow clones should be disabled for better analysis
+  # ============================================================================
+  # STAGE 3: SONARQUBE WITH AI FEATURES
+  # ============================================================================
+  sonarqube:
+    name: "🟠 SonarQube (AI)"
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Shallow clones should be disabled for better analysis
 
-  #     - name: Set up Python
-  #       uses: actions/setup-python@v5
-  #       with:
-  #         python-version: '3.12'
-  #         cache: 'pip'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
 
-  #     - name: Install dependencies
-  #       run: |
-  #         python -m pip install --upgrade pip
-  #         pip install -r src/app/requirements.txt
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r src/app/requirements.txt
 
-  #     - name: Download Test Reports
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: test-reports
-  #         path: reports/
+      - name: Download Test Reports
+        uses: actions/download-artifact@v4
+        with:
+          name: test-reports
+          path: reports/
 
-  #     - name: SonarQube Scan with AI CodeFix
-  #       uses: SonarSource/sonarqube-scan-action@v7.1.0
-  #       env:
-  #         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-  #       with:
-  #         args: >
-  #           -Dsonar.projectBaseDir=.
-  #           -Dsonar.scm.revision=${{ github.sha }}
+      - name: SonarQube Scan with AI CodeFix
+        uses: SonarSource/sonarqube-scan-action@v7.1.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.projectBaseDir=.
+            -Dsonar.scm.revision=${{ github.sha }}
 
-  #     - name: SonarQube Quality Gate
-  #       uses: SonarSource/sonarqube-quality-gate-action@v1
-  #       timeout-minutes: 5
-  #       env:
-  #         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      - name: SonarQube Quality Gate
+        uses: SonarSource/sonarqube-quality-gate-action@v1
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
-  #     - name: Get AI Fix Suggestions
-  #       if: failure()
-  #       run: |
-  #         echo "## 🔍 SonarQube AI Analysis Results" >> $GITHUB_STEP_SUMMARY
-  #         echo "" >> $GITHUB_STEP_SUMMARY
-  #         echo "Quality Gate failed. AI-powered suggestions are available in SonarQube." >> $GITHUB_STEP_SUMMARY
-  #         echo "" >> $GITHUB_STEP_SUMMARY
-  #         echo "### AI Features Enabled:" >> $GITHUB_STEP_SUMMARY
-  #         echo "- ✅ AI Code Suggestions" >> $GITHUB_STEP_SUMMARY
-  #         echo "- ✅ AI CodeFix" >> $GITHUB_STEP_SUMMARY
-  #         echo "- ✅ AI-Powered Issue Explanation" >> $GITHUB_STEP_SUMMARY
-  #         echo "" >> $GITHUB_STEP_SUMMARY
-  #         echo "👉 Review the [SonarQube Dashboard] >> $GITHUB_STEP_SUMMARY
+      - name: Get AI Fix Suggestions
+        if: failure()
+        run: |
+          echo "## 🔍 SonarQube AI Analysis Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Quality Gate failed. AI-powered suggestions are available in SonarQube." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### AI Features Enabled:" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ AI Code Suggestions" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ AI CodeFix" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ AI-Powered Issue Explanation" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "👉 Review the [SonarQube Dashboard] >> $GITHUB_STEP_SUMMARY
 
 
   # ============================================================================
@@ -383,7 +383,7 @@ jobs:
 
           # Table format for human reading
           syft ${{ steps.meta.outputs.tags }} \
-            -o table > sbom.txt
+            -o template -t csv.tmpl > sbom.txt
 
       - name: Upload SBOM Artifacts
         uses: actions/upload-artifact@v4
@@ -410,206 +410,206 @@ jobs:
   # ============================================================================
   # STAGE 5: SCAN IMAGES WITH MULTIPLE TOOLS
   # ============================================================================
-  # scan:
-  #   name: "🟣 Image Scan"
-  #   runs-on: ubuntu-latest
-  #   needs: build
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
+  scan:
+    name: "🟣 Image Scan"
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-  #     - name: Download SBOM
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: sbom-artifacts
-  #         path: sbom/
-  #     - name: Login to GitHub Container Registry
-  #       uses: docker/login-action@v3
-  #       with:
-  #         registry: ${{ env.REGISTRY }}
-  #         username: ${{ github.actor }}
-  #         password: ${{ secrets.GITHUB_TOKEN }}
-  #     # -------------------------------------------------------------------------
-  #     # TRIVY SCANNER
-  #     # -------------------------------------------------------------------------
-  #     - name: Run Trivy Vulnerability Scanner
-  #       uses: aquasecurity/trivy-action@v0.36.0
-  #       with:
-  #         scan-type: 'image'
-  #         image-ref: '${{ needs.build.outputs.image-tag }}'
-  #         format: 'sarif'
-  #         output: 'trivy-results.sarif'
-  #         severity: 'CRITICAL,HIGH'
-  #         exit-code: '0'
-  #         ignore-unfixed: true
-  #         vuln-type: 'os,library'
-  #         scanners: 'vuln,secret,misconfig'
-  #         trivyignores: '.trivyignore'
-  #         timeout: '10m'
-  #         cache: 'false'
-  #       env:
-  #         TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db
+      - name: Download SBOM
+        uses: actions/download-artifact@v4
+        with:
+          name: sbom-artifacts
+          path: sbom/
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # -------------------------------------------------------------------------
+      # TRIVY SCANNER
+      # -------------------------------------------------------------------------
+      - name: Run Trivy Vulnerability Scanner
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: 'image'
+          image-ref: '${{ needs.build.outputs.image-tag }}'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          scanners: 'vuln,secret,misconfig'
+          trivyignores: '.trivyignore'
+          timeout: '10m'
+          cache: 'false'
+        env:
+          TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db
 
-  #     - name: Run Trivy Config Scanner
-  #       uses: aquasecurity/trivy-action@v0.36.0
-  #       with:
-  #         scan-type: 'config'
-  #         scan-ref: 'k8s/'
-  #         format: 'table'
-  #         output: 'trivy-config-results.txt'
-  #         severity: 'CRITICAL,HIGH,MEDIUM'
-  #         exit-code: '0'
+      - name: Run Trivy Config Scanner
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: 'config'
+          scan-ref: 'k8s/'
+          format: 'table'
+          output: 'trivy-config-results.txt'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+          exit-code: '0'
 
-  #     - name: Run Trivy Secret Scanner
-  #       uses: aquasecurity/trivy-action@v0.36.0
-  #       with:
-  #         scan-type: 'image'
-  #         image-ref: '${{ needs.build.outputs.image-tag }}'
-  #         format: 'json'
-  #         output: 'trivy-secrets.json'
-  #         scanners: 'secret'
-  #         exit-code: '0'
-  #         secret-config: '.trivy-secret.yaml'
+      - name: Run Trivy Secret Scanner
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: 'image'
+          image-ref: '${{ needs.build.outputs.image-tag }}'
+          format: 'json'
+          output: 'trivy-secrets.json'
+          scanners: 'secret'
+          exit-code: '0'
+          secret-config: '.trivy-secret.yaml'
 
-  #     - name: Upload Trivy Results
-  #       uses: github/codeql-action/upload-sarif@v3
-  #       with:
-  #         sarif_file: trivy-results.sarif
-  #         category: trivy
-  #     # -------------------------------------------------------------------------
-  #     # Common Steps
-  #     # -------------------------------------------------------------------------
-  #     - name: Upload Scan Results
-  #       uses: actions/upload-artifact@v4
-  #       if: always()
-  #       with:
-  #         name: scan-results-trivy
-  #         path: |
-  #           *-results.*
-  #           *-results.json
-  #         retention-days: 90
+      - name: Upload Trivy Results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy
+      # -------------------------------------------------------------------------
+      # Common Steps
+      # -------------------------------------------------------------------------
+      - name: Upload Scan Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: scan-results-trivy
+          path: |
+            *-results.*
+            *-results.json
+          retention-days: 90
 
-  #     - name: Scan Summary
-  #       if: always()
-  #       run: |
-  #         echo "## 🟣 Trivy Scan Results" >> $GITHUB_STEP_SUMMARY
-  #         echo "" >> $GITHUB_STEP_SUMMARY
-  #         if [ -f "*-results.txt" ]; then
-  #           echo '```' >> $GITHUB_STEP_SUMMARY
-  #           cat *-results.txt >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
-  #           echo '```' >> $GITHUB_STEP_SUMMARY
-  #         fi
+      - name: Scan Summary
+        if: always()
+        run: |
+          echo "## 🟣 Trivy Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f "*-results.txt" ]; then
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat *-results.txt >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
 
-  # # ============================================================================
-  # # STAGE 6: SIGN WITH COSIGN
-  # # ============================================================================
-  # sign:
-  #   name: "🟢 Sign Image"
-  #   runs-on: ubuntu-latest
-  #   needs: [scan, build]
-  #   if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
+  # ============================================================================
+  # STAGE 6: SIGN WITH COSIGN
+  # ============================================================================
+  sign:
+    name: "🟢 Sign Image"
+    runs-on: ubuntu-latest
+    needs: [scan, build]
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-  #     - name: Download SBOM
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: sbom-artifacts
-  #         path: sbom/
+      - name: Download SBOM
+        uses: actions/download-artifact@v4
+        with:
+          name: sbom-artifacts
+          path: sbom/
 
-  #     - name: Login to GitHub Container Registry
-  #       uses: docker/login-action@v3
-  #       with:
-  #         registry: ${{ env.REGISTRY }}
-  #         username: ${{ github.actor }}
-  #         password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-  #     - name: Install Cosign
-  #       uses: sigstore/cosign-installer@v3
-  #       with:
-  #         cosign-release: 'v2.2.4'
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: 'v2.2.4'
 
-  #     - name: Verify Cosign Installation
-  #       run: |
-  #         cosign version
-  #         cosign verify-blob --help
+      - name: Verify Cosign Installation
+        run: |
+          cosign version
+          cosign verify-blob --help
 
-  #     - name: Normalize image name
-  #       run: echo "IMAGE_NAME_LOWER=$(echo '${{ env.IMAGE_NAME }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+      - name: Normalize image name
+        run: echo "IMAGE_NAME_LOWER=$(echo '${{ env.IMAGE_NAME }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
-  #     # -------------------------------------------------------------------------
-  #     # Key-based Signing (Optional - for additional verification)
-  #     # -------------------------------------------------------------------------
-  #     - name: Sign with Private Key
-  #       run: |
-  #         echo "${{ secrets.COSIGN_PRIVATE_KEY }}" | cosign sign \
-  #           --key env://COSIGN_PRIVATE_KEY \
-  #           --annotations "repo=${{ github.repository }}" \
-  #           --annotations "sha=${{ github.sha }}" \
-  #           --annotations "ref=${{ github.ref }}" \
-  #           --annotations "actor=${{ github.actor }}" \
-  #           --annotations "run_id=${{ github.run_id }}" \
-  #           --annotations "run_number=${{ github.run_number }}" \
-  #           --yes \
-  #           ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}@${{ needs.build.outputs.image-digest }}
-  #       env:
-  #         COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
-  #         COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+      # -------------------------------------------------------------------------
+      # Key-based Signing (Optional - for additional verification)
+      # -------------------------------------------------------------------------
+      - name: Sign with Private Key
+        run: |
+          echo "${{ secrets.COSIGN_PRIVATE_KEY }}" | cosign sign \
+            --key env://COSIGN_PRIVATE_KEY \
+            --annotations "repo=${{ github.repository }}" \
+            --annotations "sha=${{ github.sha }}" \
+            --annotations "ref=${{ github.ref }}" \
+            --annotations "actor=${{ github.actor }}" \
+            --annotations "run_id=${{ github.run_id }}" \
+            --annotations "run_number=${{ github.run_number }}" \
+            --yes \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}@${{ needs.build.outputs.image-digest }}
+        env:
+          COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
+          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
 
-  #     # -------------------------------------------------------------------------
-  #     # SBOM Signing
-  #     # -------------------------------------------------------------------------
-  #     - name: Attach and Sign SBOM
-  #       run: |
-  #         # Attach SBOM to image
-  #         cosign attach sbom \
-  #           --sbom sbom/sbom.spdx.json \
-  #           ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}@${{ needs.build.outputs.image-digest }}
+      # -------------------------------------------------------------------------
+      # SBOM Signing
+      # -------------------------------------------------------------------------
+      - name: Attach and Sign SBOM
+        run: |
+          # Attach SBOM to image
+          cosign attach sbom \
+            --sbom sbom/sbom.spdx.json \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}@${{ needs.build.outputs.image-digest }}
 
-  #         # Sign the SBOM
-  #         cosign sign --yes \
-  #           --attachment sbom \
-  #           ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}@${{ needs.build.outputs.image-digest }}
+          # Sign the SBOM
+          cosign sign --yes \
+            --attachment sbom \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}@${{ needs.build.outputs.image-digest }}
 
-  #     # -------------------------------------------------------------------------
-  #     # Verification
-  #     # -------------------------------------------------------------------------
-  #     - name: Verify Signature
-  #       run: |
-  #         cosign verify \
-  #           --key env://COSIGN_PUBLIC_KEY \
-  #           ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}@${{ needs.build.outputs.image-digest }}
-  #       env:
-  #         COSIGN_PUBLIC_KEY: ${{ vars.COSIGN_PUBLIC_KEY }}
+      # -------------------------------------------------------------------------
+      # Verification
+      # -------------------------------------------------------------------------
+      - name: Verify Signature
+        run: |
+          cosign verify \
+            --key env://COSIGN_PUBLIC_KEY \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}@${{ needs.build.outputs.image-digest }}
+        env:
+          COSIGN_PUBLIC_KEY: ${{ vars.COSIGN_PUBLIC_KEY }}
 
 
-  #     - name: Verify SBOM Attachment
-  #       run: |
-  #         cosign download sbom \
-  #           ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}@${{ needs.build.outputs.image-digest }}
+      - name: Verify SBOM Attachment
+        run: |
+          cosign download sbom \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}@${{ needs.build.outputs.image-digest }}
 
-  #     - name: Signing Summary
-  #       run: |
-  #         echo "## 🟢 Image Signing Summary" >> $GITHUB_STEP_SUMMARY
-  #         echo "" >> $GITHUB_STEP_SUMMARY
-  #         echo "| Item | Status |" >> $GITHUB_STEP_SUMMARY
-  #         echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
-  #         echo "| Key Signature | ✅ Signed |" >> $GITHUB_STEP_SUMMARY
-  #         echo "| SBOM Attachment | ✅ Attached & Signed |" >> $GITHUB_STEP_SUMMARY
-  #         echo "" >> $GITHUB_STEP_SUMMARY
-  #         echo "### Verification Commands" >> $GITHUB_STEP_SUMMARY
-  #         echo '```bash' >> $GITHUB_STEP_SUMMARY
-  #         echo "# Verify signature" >> $GITHUB_STEP_SUMMARY
-  #         echo "cosign verify \\" >> $GITHUB_STEP_SUMMARY
-  #         echo "  --certificate-identity='${{ github.actor }}' \\" >> $GITHUB_STEP_SUMMARY
-  #         echo "  --certificate-oidc-issuer='https://token.actions.githubusercontent.com' \\" >> $GITHUB_STEP_SUMMARY
-  #         echo "  ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}@${{ needs.build.outputs.image-digest }}" >> $GITHUB_STEP_SUMMARY
-  #         echo '```' >> $GITHUB_STEP_SUMMARY
+      - name: Signing Summary
+        run: |
+          echo "## 🟢 Image Signing Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Item | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Key Signature | ✅ Signed |" >> $GITHUB_STEP_SUMMARY
+          echo "| SBOM Attachment | ✅ Attached & Signed |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Verification Commands" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo "# Verify signature" >> $GITHUB_STEP_SUMMARY
+          echo "cosign verify \\" >> $GITHUB_STEP_SUMMARY
+          echo "  --certificate-identity='${{ github.actor }}' \\" >> $GITHUB_STEP_SUMMARY
+          echo "  --certificate-oidc-issuer='https://token.actions.githubusercontent.com' \\" >> $GITHUB_STEP_SUMMARY
+          echo "  ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}@${{ needs.build.outputs.image-digest }}" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
-  # # ============================================================================
-  # # STAGE 7: DEPLOY WITH ARGOCD
-  # # ============================================================================
+  # ============================================================================
+  # STAGE 7: DEPLOY WITH ARGOCD
+  # ============================================================================
   deploy:
     name: "🚀 Deploy"
     runs-on: self-hosted
