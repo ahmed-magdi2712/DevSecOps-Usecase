@@ -694,6 +694,9 @@ jobs:
           done
 
       - name: Wait for ArgoCD Sync
+        env:
+          ARGOCD_TOKEN: ${{ secrets.ARGOCD_TOKEN }}
+          ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
         run: |
           # Wait for sync to complete
           argocd app wait ${{ env.APP_NAME }} \
