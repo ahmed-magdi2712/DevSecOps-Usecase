@@ -1,43 +1,46 @@
----
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 namespace: secureapp-dev
 
 resources:
-  - ../../base
+- ../../base
 
 namePrefix: dev-
 
 patches:
-  - patch: |-
-      apiVersion: apps/v1
-      kind: Deployment
-      metadata:
-        name: app
-      spec:
-        replicas: 1
-        template:
-          spec:
-            containers:
-              - name: api
-                resources:
-                  requests:
-                    cpu: "50m"
-                    memory: "128Mi"
-                  limits:
-                    cpu: "200m"
-                    memory: "256Mi"
-                env:
-                  - name: ENVIRONMENT
-                    value: "development"
-                  - name: LOG_LEVEL
-                    value: "debug"
+- patch: |-
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: app
+    spec:
+      replicas: 1
+      template:
+        spec:
+          containers:
+            - name: api
+              resources:
+                requests:
+                  cpu: "50m"
+                  memory: "128Mi"
+                limits:
+                  cpu: "200m"
+                  memory: "256Mi"
+              env:
+                - name: ENVIRONMENT
+                  value: "development"
+                - name: LOG_LEVEL
+                  value: "debug"
 
 configMapGenerator:
-  - name: secureapp-config
-    behavior: merge
-    literals:
-      - ENVIRONMENT=development
-      - LOG_LEVEL=debug
-      - WORKERS=1
+- behavior: merge
+  literals:
+  - ENVIRONMENT=development
+  - LOG_LEVEL=debug
+  - WORKERS=1
+  name: secureapp-config
+images:
+- digest: sha256:84538dec2bc6ae776959e2a369164088a68d3ed401c8dc15a128de84b2831cdb
+  name: ahmed-magdi2712/DevSecOps-Usecase
+  newName: ghcr.io/ahmed-magdi2712/devsecops-usecase
