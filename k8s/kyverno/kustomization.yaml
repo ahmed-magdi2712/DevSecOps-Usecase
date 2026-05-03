@@ -3,8 +3,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  - signed-images-policy.yaml
-  - additional-policies.yaml
+  - image-policy.yaml
 
 commonLabels:
   app.kubernetes.io/part-of: kyverno-policies

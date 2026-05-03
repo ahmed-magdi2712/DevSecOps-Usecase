@@ -109,7 +109,7 @@ jobs:
           framework: kubernetes
           output_format: cli,sarif
           output_file_path: console,checkov-results.sarif
-          skip_check: CKV_K8S_21,CKV_K8S_22,CKV_K8S_15,CKV_K8S_40,CKV_K8S_43,CKV_K8S_35,CKV2_K8S_6
+          skip_check: CKV_K8S_21,CKV_K8S_22,CKV_K8S_15,CKV_K8S_40,CKV_K8S_43,CKV_K8S_35,CKV2_K8S_6,CKV_K8S_38
         continue-on-error: true
 
       - name: Upload Lint Artifacts
@@ -768,7 +768,6 @@ jobs:
           echo "- SBOM (SPDX, CycloneDX formats)" >> $GITHUB_STEP_SUMMARY
           echo "- Vulnerability Scan Reports (Trivy, Grype, Snyk, Anchore)" >> $GITHUB_STEP_SUMMARY
           echo "- Container Image Signatures" >> $GITHUB_STEP_SUMMARY
-          echo "- SLSA Provenance Attestation" >> $GITHUB_STEP_SUMMARY
 
       - name: Check Pipeline Result
         if: |

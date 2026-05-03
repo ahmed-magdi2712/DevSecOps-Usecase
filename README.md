@@ -6,7 +6,7 @@ A production-ready **FastAPI** application built to demonstrate every stage of t
 
 | Stage | Tool | Purpose |
 |-------|------|---------|
-| 🔴 Lint | Ruff, Flake8, Pylint, Mypy, Bandit, Hadolint, yamllint, Checkov | Code quality + IaC security |
+| 🔴 Lint | Ruff, Flake8, Pylint, Mypy, Bandit, Hadolint, yamllint, Checkov, pydocstyle, isort, Black, Markdownlint | Code quality + IaC security |
 | 🟡 Test | pytest + asyncio | Unit, integration, and security tests (≥80% coverage) |
 | 🟠 SonarQube | SonarQube Cloud with AI CodeFix | Static analysis + AI suggestions |
 | 🔵 Build | Docker BuildKit + Syft | Multi-stage image + SBOM (SPDX & CycloneDX) |
@@ -22,7 +22,7 @@ A production-ready **FastAPI** application built to demonstrate every stage of t
 - **Auth**: JWT (HS256) + bcrypt
 - **Observability**: structlog (JSON) + Prometheus metrics + OpenTelemetry
 - **Container**: Multi-stage Docker image, non-root user, read-only filesystem
-- **Kubernetes**: Kustomize base + dev/staging/prod overlays, HPA, NetworkPolicy, PDB
+- **Kubernetes**: Kustomize base + dev/staging/prod overlays, HPA, NetworkPolicy, PDB, Kyverno (image policies), Vault ESO (external secrets)
 
 ## Quick Start (Local)
 
@@ -41,11 +41,33 @@ pip install -r src/app/requirements.txt
 # 4. Configure environment
 cp .env.example .env
 
-# 5. Run the application
+# 5. Run database migrations
+alembic upgrade head
+
+# 6. Run the application
 uvicorn src.app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 Open <http://localhost:8000/docs> for the interactive API documentation.
+
+## Database Migrations
+
+```bash
+# Install alembic
+pip install alembic
+
+# Create a new migration
+alembic revision --autogenerate -m "description"
+
+# Apply migrations
+alembic upgrade head
+
+# Rollback one migration
+alembic downgrade -1
+
+# View migration history
+alembic history --verbose
+```
 
 ## Running Tests
 
@@ -78,6 +100,15 @@ mypy src/ --ignore-missing-imports
 # Security linting
 bandit -r src/ -ll
 
+# Documentation linting
+pydocstyle src/ --convention=pep257 --add-ignore=D100,D101,D102,D103,D104,D105,D107
+
+# Import sorting
+isort --check-only --diff src/
+
+# Code formatting
+black --check src/
+
 # Dockerfile linting
 hadolint docker/Dockerfile
 
@@ -104,20 +135,37 @@ docker run -p 8000:8000 \
 
 ## API Reference
 
+### Health & Metrics
+
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET | `/api/v1/health` | ❌ | Full health check |
 | GET | `/api/v1/health/live` | ❌ | Kubernetes liveness probe |
 | GET | `/api/v1/health/ready` | ❌ | Kubernetes readiness probe |
 | GET | `/api/v1/metrics` | ❌ | Prometheus metrics |
+
+### Authentication
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
 | POST | `/api/v1/auth/token` | ❌ | Login (get JWT tokens) |
 | POST | `/api/v1/auth/refresh` | ❌ | Refresh access token |
 | GET | `/api/v1/auth/me` | ✅ | Current user profile |
+
+### Users
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
 | POST | `/api/v1/users/` | ❌ | Register a new user |
 | GET | `/api/v1/users/` | 🔑 Admin | List all users |
 | GET | `/api/v1/users/{id}` | ✅ | Get user by ID |
 | PATCH | `/api/v1/users/{id}` | ✅ | Update user |
 | DELETE | `/api/v1/users/{id}` | 🔑 Admin | Deactivate user |
+
+### Items
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
 | GET | `/api/v1/items/` | ✅ | List items |
 | POST | `/api/v1/items/` | ✅ | Create item |
 | GET | `/api/v1/items/{id}` | ✅ | Get item |
@@ -131,15 +179,24 @@ docker run -p 8000:8000 \
 ├── .github/
 │   ├── buildkitd.toml          # Docker BuildKit config
 │   └── workflows/
-│       └── devsecops-pipeline.yml
+│       ├── devsecops-pipeline.yml
+│       └── opencode.yml
+├── alembic/
+│   ├── versions/               # Database migrations
+│   ├── env.py                 # Alembic environment
+│   └── script.py.mako
+├── argocd/
+│   └── secureapp-dev.yaml      # ArgoCD application config
 ├── docker/
 │   └── Dockerfile              # Multi-stage production image
 ├── k8s/
 │   ├── base/                   # Kustomize base manifests
-│   └── overlays/
-│       ├── dev/
-│       ├── staging/
-│       └── prod/
+│   ├── overlays/
+│   │   ├── dev/
+│   │   ├── staging/
+│   │   └── prod/
+│   ├── kyverno/               # Kyverno image policies
+│   └── vault-eso/            # Vault External Secrets Operator
 ├── src/
 │   └── app/
 │       ├── api/v1/             # Route handlers
@@ -168,9 +225,17 @@ docker run -p 8000:8000 \
 |--------|-------------|
 | `SONAR_TOKEN` | SonarQube authentication token |
 | `ARGOCD_SERVER` | ArgoCD server hostname |
-| `ARGOCD_TOKEN` | ArgoCD username |
-| `COSIGN_PRIVATE_KEY` | Cosign private key (optional — keyless used by default) |
+| `ARGOCD_TOKEN` | ArgoCD authentication token |
+| `COSIGN_PRIVATE_KEY` | Cosign private key (optional - keyless used by default) |
 | `COSIGN_PASSWORD` | Cosign private key passphrase |
+| `COSIGN_PUBLIC_KEY` | Cosign public key for verification |
+| `GIT_TOKEN_COMMIT` | Git token for committing manifest changes |
+
+## Required GitHub Variables
+
+| Variable | Description |
+|----------|-------------|
+| `COSIGN_PUBLIC_KEY` | Cosign public key for image verification |
 
 ## License
 
