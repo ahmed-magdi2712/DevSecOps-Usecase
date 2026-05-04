@@ -8,10 +8,10 @@ A production-ready FastAPI application demonstrating a comprehensive DevSecOps p
 |-------|------|---------|
 | 🔴 Lint | Ruff, Flake8, Pylint, Mypy, Bandit, Hadolint, yamllint, Checkov, pydocstyle, isort, Black, Markdownlint | Code quality + IaC security |
 | 🟡 Test | pytest + asyncio | Unit, integration, and security tests (≥80% coverage) |
-| 🟠 SonarQube | SonarQube Cloud with AI CodeFix | Static analysis + AI suggestions |
+| 🟠 SonarQube | SonarQube Cloud | Static analysis |
 | 🔵 Build | Docker BuildKit + Syft | Multi-stage image + SBOM (SPDX & CycloneDX) |
 | 🟣 Scan | Trivy | Vulnerability scanning against image + SBOM |
-| 🟢 Sign | Cosign (key-based) | Image signing + SLSA L3 provenance |
+| 🟢 Sign | Cosign (key-based) | Image signing |
 | 🚀 Deploy | ArgoCD + Kustomize | GitOps deployment to dev/staging/prod |
 
 ## What This POC Demonstrates
@@ -21,7 +21,7 @@ This POC showcases security at every stage of the software delivery lifecycle:
 - **Shift-left security** with lint-stage SAST (Bandit, Checkov)
 - **Automated testing** with security test cases
 - **SBOM generation** in SPDX and CycloneDX formats
-- **Image signing** with Cosign (SLSA L3 compliance)
+- **Image signing** with Cosign
 - **GitOps deployment** with ArgoCD
 - **External secrets** management with Vault ESO
 - **Image verification** with Kyverno policies
@@ -65,7 +65,7 @@ This POC showcases security at every stage of the software delivery lifecycle:
 |   +-------------------------------------------------------------------------+||
 |                                                                              ||
 |   +-------------------------------------------------------------------------+||
-|   | STAGE 3: SONARQUBE (AI Code Analysis)                                    ||
+|   | STAGE 3: SONARQUBE                                                       ||
 |   +-------------------------------------------------------------------------+||
 |   | Static Analysis | Quality Gate |                                         ||
 |   | -------------   | ------------ |                                         ||
@@ -119,18 +119,6 @@ This POC showcases security at every stage of the software delivery lifecycle:
 |   +-------------------------------------------------------------------------+||
 +=============================================================================+
 ```
-
-### Pipeline Stage Details
-
-| Stage | Tools | Security Focus |
-|-------|-------|-------------|
-| **Lint** | Ruff, Flake8, Pylint, Mypy, Bandit, Hadolint, yamllint, Checkov | SAST, IaC scanning, container security |
-| **Test** | pytest, pytest-cov, pytest-asyncio | Unit, integration, security tests (≥80% coverage) |
-| **SonarQube** | SonarQube Cloud + AI CodeFix | Static analysis, code smells, AI suggestions |
-| **Build** | Docker BuildKit, Syft | Multi-stage build, SBOM (SPDX + CycloneDX) |
-| **Scan** | Trivy | Vulnerability, secret, misconfiguration scanning |
-| **Sign** | Cosign | Image signing, SLSA L3 provenance, attestations |
-| **Deploy** | ArgoCD, Kustomize | GitOps, progressive delivery, policy enforcement |
 
 ## Detailed Technology Stack
 
