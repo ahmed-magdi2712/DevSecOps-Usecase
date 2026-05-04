@@ -1,6 +1,6 @@
 # SecureApp — DevSecOps POC
 
-A production-ready **FastAPI** application built to demonstrate every stage of the DevSecOps pipeline.
+A production-ready FastAPI application demonstrating a comprehensive DevSecOps pipeline implementation.
 
 ## Pipeline Stages
 
@@ -14,7 +14,125 @@ A production-ready **FastAPI** application built to demonstrate every stage of t
 | 🟢 Sign | Cosign (key-based) | Image signing + SLSA L3 provenance |
 | 🚀 Deploy | ArgoCD + Kustomize | GitOps deployment to dev/staging/prod |
 
-## Technology Stack
+## What This POC Demonstrates
+
+This POC showcases security at every stage of the software delivery lifecycle:
+
+- **Shift-left security** with lint-stage SAST (Bandit, Checkov)
+- **Automated testing** with security test cases
+- **SBOM generation** in SPDX and CycloneDX formats
+- **Image signing** with Cosign (SLSA L3 compliance)
+- **GitOps deployment** with ArgoCD
+- **External secrets** management with Vault ESO
+- **Image verification** with Kyverno policies
+- **Policy enforcement** at build and deploy time
+
+## DevSecOps Pipeline Flow
+
+```text
++=============================================================================+
+|                           DEVSECOPS PIPELINE                                 ||
++=============================================================================+||
+|                                                                              ||
+|   +----------+    +----------+    +----------+    +----------+               ||
+|   | COMMIT   | => |  BUILD   | => |  TEST    | => |  DEPLOY  |               ||
+|   +----------+    +----------+    +----------+    +----------+               ||
+|                                                                              ||
+|   +-------------------------------------------------------------------------+||
+|   | STAGE 1: LINT (Security Scan)                                            ||
+|   +-------------------------------------------------------------------------+||
+|   | Code           | IaC         | Docker      | YAML                        ||
+|   | -----------    | ----------- | ----------  | ------                      ||
+|   | * Ruff         | * Checkov   | * Hadolint  | * yamllint                  ||
+|   | * Flake8       |             |             |                             ||
+|   | * Pylint       |             |             |                             ||
+|   | * Mypy         |             |             |                             ||
+|   | * Bandit       |             |             |                             ||
+|   | * isort        |             |             |                             ||
+|   |                |             |             |                             ||
+|   |                |             |             |                             ||
+|   +-------------------------------------------------------------------------+||
+|                                                                              ||
+|   +-------------------------------------------------------------------------+||
+|   | STAGE 2: TEST (Security Tests)                                           ||
+|   +-------------------------------------------------------------------------+||
+|   | Unit            | Integration      | Security      | Coverage            ||
+|   | ------------    | -----------      | --------      | --------            ||
+|   | * pytest        | * pytest         | * pytest      | * pytest-cov        ||
+|   | * pytest-cov    | * requests       | * safety      | * coverage          ||
+|   | * pytest-asyncio|                  | * bandit      |                     ||
+|   |                 |                  |               |                     ||
+|   +-------------------------------------------------------------------------+||
+|                                                                              ||
+|   +-------------------------------------------------------------------------+||
+|   | STAGE 3: SONARQUBE (AI Code Analysis)                                    ||
+|   +-------------------------------------------------------------------------+||
+|   | Static Analysis | Quality Gate |                                         ||
+|   | -------------   | ------------ |                                         ||
+|   | * Code smells   | * Quality    |                                         ||
+|   | * Bugs          |   status     |                                         ||
+|   | * Vulnerabili-  |              |                                         ||
+|   |   ties          |              |                                         ||
+|   | * Security      |              |                                         ||
+|   |   hotspots      |              |                                         ||
+|   +--------------------------------------------------------------------------||+||                                                                            ||
+|   +-------------------------------------------------------------------------+||
+|   | STAGE 4: BUILD (Container + SBOM)                                        ||
+|   +-------------------------------------------------------------------------+||
+|   | Container Build | Image Stats     | SBOM Generation                      ||
+|   | -------------   | ----------      | ------------                         ||
+|   | * BuildKit      | * docker        | * Syft                               ||
+|   | * Multi-stage   |   history       | * CycloneDX                          ||
+|   | * Docker        |                 | * SPDX-JSON                          ||
+|   |                 |                 |                                      ||
+|   +-------------------------------------------------------------------------+||
+|                                                                              ||
+|   +-------------------------------------------------------------------------+||
+|   | STAGE 5: SCAN (Vulnerability Scan)                                       ||
+|   +-------------------------------------------------------------------------+||
+|   | Image Scan    | Config Scan  | Secret Scan  | K8s Scan                   ||
+|   | -----------   | ----------   | ----------   | --------                   ||
+|   | * Trivy       | * Trivy      | * Trivy      | * Trivy                    ||
+|   |               | * Checkov    |              | * Checkov                  ||
+|   |               |              |              |                            ||
+|   +-------------------------------------------------------------------------+||
+|                                                                              ||
+|   +-------------------------------------------------------------------------+||
+|   | STAGE 6: SIGN (Image Attestation)                                        ||
+|   +-------------------------------------------------------------------------+||
+|   | Image Signing | SBOM Attestation                                         ||
+|   | ------------  | -----------------                                        ||
+|   | * Cosign      | * Cosign                                                 ||
+|   |               | * Attestation                                            ||
+|   |               |   attach                                                 ||
+|   +-------------------------------------------------------------------------+||
+|                                                                              ||
+|   +-------------------------------------------------------------------------+||
+|   | STAGE 7: DEPLOY (GitOps)                                                 ||
+|   +-------------------------------------------------------------------------+||
+|   | Deployment    | Secrets      | Policy                                    ||
+|   | -----------   | ----------   | ----------                                ||
+|   | * ArgoCD      | * Vault      | * Kyverno                                 ||
+|   | * Kustomize   |   ESO        |                                           ||
+|   | * Helm        | * External   |                                           ||
+|   |               |   Secrets    |                                           ||
+|   +-------------------------------------------------------------------------+||
++=============================================================================+
+```
+
+### Pipeline Stage Details
+
+| Stage | Tools | Security Focus |
+|-------|-------|-------------|
+| **Lint** | Ruff, Flake8, Pylint, Mypy, Bandit, Hadolint, yamllint, Checkov | SAST, IaC scanning, container security |
+| **Test** | pytest, pytest-cov, pytest-asyncio | Unit, integration, security tests (≥80% coverage) |
+| **SonarQube** | SonarQube Cloud + AI CodeFix | Static analysis, code smells, AI suggestions |
+| **Build** | Docker BuildKit, Syft | Multi-stage build, SBOM (SPDX + CycloneDX) |
+| **Scan** | Trivy | Vulnerability, secret, misconfiguration scanning |
+| **Sign** | Cosign | Image signing, SLSA L3 provenance, attestations |
+| **Deploy** | ArgoCD, Kustomize | GitOps, progressive delivery, policy enforcement |
+
+## Detailed Technology Stack
 
 - **Runtime**: Python 3.12 + FastAPI + Uvicorn
 - **Database**: PostgreSQL 16 (async via SQLAlchemy + asyncpg)

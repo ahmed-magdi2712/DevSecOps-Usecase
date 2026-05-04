@@ -4,15 +4,3 @@ kind: Kustomization
 
 resources:
   - image-policy.yaml
-
-commonLabels:
-  app.kubernetes.io/part-of: kyverno-policies
-  app.kubernetes.io/managed-by: kustomize
-
-namespace: kyverno
-
-configMapGenerator:
-  - name: kyverno-policy-config
-    literals:
-      - trusted_registries=ghcr.io,docker.io,internal.registry.company.com
-      - cosign_issuer=https://token.actions.githubusercontent.com
