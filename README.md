@@ -328,7 +328,6 @@ docker run -p 8000:8000 \
 │       └── requirements.txt
 ├── .env.example
 ├── .markdownlint.json
-├── .snyk
 ├── .trivy-secret.yaml
 ├── .yamllint
 ├── docker-compose.yml
@@ -348,6 +347,130 @@ docker run -p 8000:8000 \
 | `COSIGN_PASSWORD` | Cosign private key passphrase |
 | `COSIGN_PUBLIC_KEY` | Cosign public key for verification |
 | `GIT_TOKEN_COMMIT` | Git token for committing manifest changes |
+
+## Pre-commit Hooks
+
+### Installation
+
+```bash
+# Install pre-commit
+pip install pre-commit
+
+# Install git hooks
+pre-commit install
+
+# Run against all files
+pre-commit run --all-files
+```
+
+### Available Hooks
+
+| Hook | Purpose | Status |
+|------|---------|--------|
+| gitleaks | Detect secrets in code | ✅ |
+| trailing-whitespace | Remove trailing whitespace | ✅ |
+| detect-private-key | Catch raw PEM/RSA keys | ✅ |
+| check-added-large-files | Prevent large file commits (>512KB) | ✅ |
+| hadolint-docker | Lint Dockerfiles | ✅ |
+| checkov | IaC security scanning | ✅ |
+
+### Configuration
+
+The pre-commit hooks are configured in `.pre-commit-config.yaml`. To customize:
+
+```bash
+# Validate config
+pre-commit validate-config .pre-commit-config.yaml
+```
+
+## SonarQube Extension
+
+### VS Code Integration
+
+1. Install the [SonarQube extension](https://marketplace.visualstudio.com/items?itemName=SonarSource.sonarlint-vscode) from VS Code marketplace
+2. Connect to SonarQube Cloud:
+   - Press `Ctrl+Shift+P` → "SonarQube: Connect to SonarQube"
+   - Enter your SonarCloud organization: `devsecops-poc`
+3. Configure `sonar-project.properties` (already configured)
+4. Run analysis: `SonarQube: Analyze`
+
+### Local CLI Analysis
+
+```bash
+# Install SonarScanner
+brew install sonar-scanner  # macOS
+# or
+sudo apt-get install sonar-scanner  # Linux
+
+# Run analysis
+sonar-scanner -Dsonar.projectKey=ahmed-magdi2712_DevSecOps-Usecase
+```
+
+### Configuration
+
+The SonarQube configuration is in `sonar-project.properties`:
+
+```properties
+sonar.projectKey=ahmed-magdi2712_DevSecOps-Usecase
+sonar.projectName=DevSecOps-Usecase
+sonar.organization=devsecops-poc
+sonar.python.version=3.13
+sonar.python.coverage.reportPaths=reports/coverage.xml
+```
+
+## OpenCode AI Assistant
+
+### GitHub Integration (Comment Commands)
+
+OpenCode is integrated via `.github/workflows/opencode.yml`. Use it on GitHub:
+
+**On PR Comment:**
+```text
+/oc review this code and suggest improvements
+
+/oc fix the security vulnerability in src/app/auth.py
+
+/oc add unit tests for the user service
+```
+
+**On Issue Comment:**
+```text
+/opencode how do I implement JWT authentication?
+
+/oc explain the CI/CD pipeline flow
+```
+
+### Trigger Commands
+
+| Command | Description |
+|---------|-------------|
+| `/oc` | Run OpenCode on PR/issue |
+| `/opencode` | Alternative trigger |
+| `@opencode` | Mention to trigger |
+
+### Permissions Required
+
+- `id-token: write` - For OIDC authentication
+- `contents: read` - Read repository code
+- `pull-requests: read` - Read PR context
+- `issues: read` - Read issue context
+
+### Local Usage
+
+```bash
+# Install OpenCode CLI
+npm install -g opencode
+
+# Run analysis
+opencode --src ./src/app --describe "find security issues"
+
+# Review specific file
+opencode --file src/app/main.py --task "improve error handling"
+```
+
+### GitHub Secrets
+
+Add `OPENCODE_API_KEY` to GitHub secrets for authentication.
 
 ## Required GitHub Variables
 
