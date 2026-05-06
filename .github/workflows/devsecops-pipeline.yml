@@ -1,9 +1,9 @@
 name: DevSecOps Pipeline
 on:
   push:
-    branches: [main, develop, release/*]
+    branches: [ main, develop, release/* ]
   pull_request:
-    branches: [main]
+    branches: [ main ]
   workflow_dispatch: {}
 # Cancel in-progress runs for the same branch/PR
 concurrency:
@@ -37,8 +37,7 @@ jobs:
     name: "🔴 Lint"
     uses: ./.github/workflows/lint.yml
     with:
-      python-version: '3.12'
-
+      python-version: "3.12"
 
   # ============================================================================
   # STAGE 2: TEST
@@ -48,8 +47,7 @@ jobs:
     needs: lint
     uses: ./.github/workflows/test.yml
     with:
-      python-version: '3.12'
-
+      python-version: "3.12"
 
   # ============================================================================
   # STAGE 3: SONARQUBE
@@ -59,11 +57,10 @@ jobs:
     needs: test
     uses: ./.github/workflows/sonarqube.yml
     with:
-      python-version: '3.12'
-      sonar-host-url: ${{ env.SONAR_HOST_URL }}
+      python-version: "3.12"
+      sonar-host-url: 'https://sonarcloud.io'
     secrets:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
 
   # ============================================================================
   # STAGE 4: BUILD IMAGES WITH SBOM
@@ -71,12 +68,12 @@ jobs:
   build:
     name: "🔵 Build & SBOM"
     needs: sonarqube
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref,
+      'refs/heads/release/')
     uses: ./.github/workflows/build.yml
     with:
-      registry: ${{ env.REGISTRY }}
-      image-name: ${{ env.IMAGE_NAME }}
-
+      registry: 'ghcr.io'
+      image-name: ${{ github.repository }}
 
   # ============================================================================
   # STAGE 5: SCAN IMAGES WITH MULTIPLE TOOLS
@@ -86,56 +83,54 @@ jobs:
     needs: build
     uses: ./.github/workflows/scan.yml
     with:
-      registry: ${{ env.REGISTRY }}
-      image-name: ${{ env.IMAGE_NAME }}
+      registry: 'ghcr.io'
+      image-name: ${{ github.repository }}
       image-tag: ${{ needs.build.outputs.image-tag }}
-
 
   # ============================================================================
   # STAGE 6: SIGN WITH COSIGN
   # ============================================================================
   sign:
     name: "🟢 Sign Image"
-    needs: [scan, build]
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')
+    needs: [ scan, build ]
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref,
+      'refs/heads/release/')
     uses: ./.github/workflows/sign.yml
     with:
-      registry: ${{ env.REGISTRY }}
-      image-name: ${{ env.IMAGE_NAME }}
+      registry: 'ghcr.io'
+      image-name: ${{ github.repository }}
       image-digest: ${{ needs.build.outputs.image-digest }}
       cosign-public-key: ${{ vars.COSIGN_PUBLIC_KEY }}
     secrets:
       COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
       COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
 
-
   # ============================================================================
   # STAGE 7: DEPLOY WITH ARGOCD
   # ============================================================================
   deploy:
     name: "🚀 Deploy"
-    needs: [sign, build]
+    needs: [ sign, build ]
     if: github.ref == 'refs/heads/main'
     uses: ./.github/workflows/deploy.yml
     with:
-      registry: ${{ env.REGISTRY }}
-      image-name: ${{ env.IMAGE_NAME }}
+      registry: 'ghcr.io'
+      image-name: ${{ github.repository }}
       image-digest: ${{ needs.build.outputs.image-digest }}
-      app-name: ${{ env.APP_NAME }}
-      environment: development
-      overlay: dev
+      app-name: 'secureapp-dev'
+      environment: 'development'
+      overlay: 'dev'
     secrets:
       GIT_TOKEN_COMMIT: ${{ secrets.GIT_TOKEN_COMMIT }}
       ARGOCD_TOKEN: ${{ secrets.ARGOCD_TOKEN }}
       ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
-
 
   # ============================================================================
   # SECURITY SUMMARY
   # ============================================================================
   security-summary:
     name: "📋 Security Summary"
-    needs: [lint, test, sonarqube, build, scan, sign, deploy]
+    needs: [ lint, test, sonarqube, build, scan, sign, deploy ]
     if: always()
     uses: ./.github/workflows/security-summary.yml
     with:
