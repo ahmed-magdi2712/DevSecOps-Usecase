@@ -1,0 +1,90 @@
+# ==============================================================================
+# Reusable Workflow: SonarQube Scan
+# ==============================================================================
+# Performs SonarQube analysis with AI-powered features including:
+#   - SonarQube Scan with AI CodeFix
+#   - Quality Gate validation
+#   - AI Fix Suggestions on failure
+#
+# Usage:
+#   jobs:
+#     sonarqube:
+#       uses: <org>/<repo>/.github/workflows/sonarqube.yml@main
+#       secrets:
+#         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+# ==============================================================================
+
+name: "Reusable - SonarQube"
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        description: "Python version to use for dependency installation"
+        type: string
+        required: false
+        default: "3.12"
+    secrets:
+      SONAR_TOKEN:
+        description: "SonarQube authentication token"
+        required: true
+
+# Minimum required permissions
+permissions:
+  contents: read
+
+jobs:
+  sonarqube:
+    name: "🟠 SonarQube (AI)"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Shallow clones should be disabled for better analysis
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r src/app/requirements.txt
+
+      - name: Download Test Reports
+        uses: actions/download-artifact@v4
+        with:
+          name: test-reports
+          path: reports/
+
+      - name: SonarQube Scan with AI CodeFix
+        uses: SonarSource/sonarqube-scan-action@v7.1.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.projectBaseDir=.
+            -Dsonar.scm.revision=${{ github.sha }}
+
+      - name: SonarQube Quality Gate
+        uses: SonarSource/sonarqube-quality-gate-action@v1
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+      - name: Get AI Fix Suggestions
+        if: failure()
+        run: |
+          echo "## 🔍 SonarQube AI Analysis Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Quality Gate failed. AI-powered suggestions are available in SonarQube." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### AI Features Enabled:" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ AI Code Suggestions" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ AI CodeFix" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ AI-Powered Issue Explanation" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "👉 Review the [SonarQube Dashboard] >> $GITHUB_STEP_SUMMARY

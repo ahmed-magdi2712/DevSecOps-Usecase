@@ -28,97 +28,7 @@ This POC showcases security at every stage of the software delivery lifecycle:
 - **Policy enforcement** at build and deploy time
 
 ## DevSecOps Pipeline Flow
-
-```text
-+=============================================================================+
-|                           DEVSECOPS PIPELINE                                 ||
-+=============================================================================+||
-|                                                                              ||
-|   +----------+    +----------+    +----------+    +----------+               ||
-|   | COMMIT   | => |  BUILD   | => |  TEST    | => |  DEPLOY  |               ||
-|   +----------+    +----------+    +----------+    +----------+               ||
-|                                                                              ||
-|   +-------------------------------------------------------------------------+||
-|   | STAGE 1: LINT (Security Scan)                                            ||
-|   +-------------------------------------------------------------------------+||
-|   | Code           | IaC         | Docker      | YAML                        ||
-|   | -----------    | ----------- | ----------  | ------                      ||
-|   | * Ruff         | * Checkov   | * Hadolint  | * yamllint                  ||
-|   | * Flake8       |             |             |                             ||
-|   | * Pylint       |             |             |                             ||
-|   | * Mypy         |             |             |                             ||
-|   | * Bandit       |             |             |                             ||
-|   | * isort        |             |             |                             ||
-|   |                |             |             |                             ||
-|   |                |             |             |                             ||
-|   +-------------------------------------------------------------------------+||
-|                                                                              ||
-|   +-------------------------------------------------------------------------+||
-|   | STAGE 2: TEST (Security Tests)                                           ||
-|   +-------------------------------------------------------------------------+||
-|   | Unit            | Integration      | Security      | Coverage            ||
-|   | ------------    | -----------      | --------      | --------            ||
-|   | * pytest        | * pytest         | * pytest      | * pytest-cov        ||
-|   | * pytest-cov    | * requests       | * safety      | * coverage          ||
-|   | * pytest-asyncio|                  | * bandit      |                     ||
-|   |                 |                  |               |                     ||
-|   +-------------------------------------------------------------------------+||
-|                                                                              ||
-|   +-------------------------------------------------------------------------+||
-|   | STAGE 3: SONARQUBE                                                       ||
-|   +-------------------------------------------------------------------------+||
-|   | Static Analysis | Quality Gate |                                         ||
-|   | -------------   | ------------ |                                         ||
-|   | * Code smells   | * Quality    |                                         ||
-|   | * Bugs          |   status     |                                         ||
-|   | * Vulnerabili-  |              |                                         ||
-|   |   ties          |              |                                         ||
-|   | * Security      |              |                                         ||
-|   |   hotspots      |              |                                         ||
-|   +--------------------------------------------------------------------------||+||                                                                            ||
-|   +-------------------------------------------------------------------------+||
-|   | STAGE 4: BUILD (Container + SBOM)                                        ||
-|   +-------------------------------------------------------------------------+||
-|   | Container Build | Image Stats     | SBOM Generation                      ||
-|   | -------------   | ----------      | ------------                         ||
-|   | * BuildKit      | * docker        | * Syft                               ||
-|   | * Multi-stage   |   history       | * CycloneDX                          ||
-|   | * Docker        |                 | * SPDX-JSON                          ||
-|   |                 |                 |                                      ||
-|   +-------------------------------------------------------------------------+||
-|                                                                              ||
-|   +-------------------------------------------------------------------------+||
-|   | STAGE 5: SCAN (Vulnerability Scan)                                       ||
-|   +-------------------------------------------------------------------------+||
-|   | Image Scan    | Config Scan  | Secret Scan  | K8s Scan                   ||
-|   | -----------   | ----------   | ----------   | --------                   ||
-|   | * Trivy       | * Trivy      | * Trivy      | * Trivy                    ||
-|   |               | * Checkov    |              | * Checkov                  ||
-|   |               |              |              |                            ||
-|   +-------------------------------------------------------------------------+||
-|                                                                              ||
-|   +-------------------------------------------------------------------------+||
-|   | STAGE 6: SIGN (Image Attestation)                                        ||
-|   +-------------------------------------------------------------------------+||
-|   | Image Signing | SBOM Attestation                                         ||
-|   | ------------  | -----------------                                        ||
-|   | * Cosign      | * Cosign                                                 ||
-|   |               | * Attestation                                            ||
-|   |               |   attach                                                 ||
-|   +-------------------------------------------------------------------------+||
-|                                                                              ||
-|   +-------------------------------------------------------------------------+||
-|   | STAGE 7: DEPLOY (GitOps)                                                 ||
-|   +-------------------------------------------------------------------------+||
-|   | Deployment    | Secrets      | Policy                                    ||
-|   | -----------   | ----------   | ----------                                ||
-|   | * ArgoCD      | * Vault      | * Kyverno                                 ||
-|   | * Kustomize   |   ESO        |                                           ||
-|   | * Helm        | * External   |                                           ||
-|   |               |   Secrets    |                                           ||
-|   +-------------------------------------------------------------------------+||
-+=============================================================================+
-```
+![DevSecOps Pipeline](./architecture/AI-DevSecOps-Pipeline-KCS-SonarQube.svg)
 
 ## Detailed Technology Stack
 
@@ -196,10 +106,62 @@ pytest src/app/tests/security/ -m security -v
 
 ## Running Linters
 
-```bash
-# Fast linter + formatter
-ruff check src/ && ruff format --check src/
+### Ruff - Fast Python Linter
 
+[Ruff](https://docs.astral.sh/ruff/) is a fast Python linter and code formatter, written in Rust. It's designed to replace multiple older tools while being 10-100x faster.
+
+#### Why Ruff?
+
+| Feature | Traditional Tools | Ruff |
+|---------|----------------|------|
+| **Speed** | Single-threaded | 10-100x faster (Rust) |
+| **Replaces** | Flake8, isort, pyupgrade, rope | 8+ tools in one |
+| **Coverage** | Basic linting | SAST, imports, refactoring |
+| **IDE Integration** | Multiple plugins | Single plugin |
+
+#### Ruff Rules Enabled
+
+Ruff replaces these tools in this POC:
+
+| Original Tool | Ruff Equivalent | Purpose |
+|--------------|----------------|---------|
+| **Flake8** | `F`, `E`, `W` codes | Code errors |
+| **isort** | `I001`, `I002` | Import sorting |
+| **pyupgrade** | `UP` | Modern Python syntax |
+| **pydocstyle** | `D` | Docstring conventions |
+| **Bandit** | `S` | Security checks |
+
+#### Usage
+
+```bash
+# Check and fix (auto-fixable issues)
+ruff check src/ --fix
+
+# Check only
+ruff check src/
+
+# Format code (Black-compatible)
+ruff format src/
+
+# Check with exit code for CI
+ruff check src/ --exit-non-zero-on-fix
+
+# Show ignored rules
+ruff check src/ --show-fixes
+
+# Configure rules in pyproject.toml
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "D", "S", "UP"]
+ignore = ["E501", "D100"]
+```
+
+### Other Linters
+
+```bash
 # Type checking
 mypy src/ --ignore-missing-imports
 
