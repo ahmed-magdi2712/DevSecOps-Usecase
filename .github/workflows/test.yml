@@ -147,18 +147,11 @@ jobs:
           retention-days: 30
 
       - name: Publish Test Results
-        uses: dorny/test-reporter@v1
+        uses: dorny/test-reporter@v3
         if: always()
         with:
           name: Test Results
           path: "*junit*.xml"
           reporter: java-junit
           fail-on-error: false
-
-      - name: Comment Coverage on PR
-        uses: romeovs/lcov-reporter-action@v0.4.0
-        if: github.event_name == 'pull_request'
-        with:
-          lcov-file: coverage.xml
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          delete-old-comments: true
+          use-actions-summary: "true"

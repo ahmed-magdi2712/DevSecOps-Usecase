@@ -85,6 +85,12 @@ jobs:
       - name: Normalize image name
         run: echo "IMAGE_NAME_LOWER=$(echo '${{ inputs.image-name }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
+      - name: Determine Environment
+        id: env
+        run: |
+          echo "environment=${{ inputs.environment }}" >> $GITHUB_OUTPUT
+          echo "overlay=${{ inputs.overlay }}" >> $GITHUB_OUTPUT
+
       - name: Setup Secrets and Project
         run: |
           kustomize build k8s/kyverno | kubectl apply -f -
@@ -93,7 +99,7 @@ jobs:
       - name: Update Kubernetes Manifests
         run: |
           # Update image tag in Kustomization
-          cd k8s/overlays/${{ inputs.overlay }}
+          cd k8s/overlays/${{ steps.env.outputs.overlay }}
 
           # Set the new image with digest
           kustomize edit set image \
@@ -104,7 +110,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git add k8s/overlays/${{ inputs.overlay }}/
+          git add k8s/overlays/${{ steps.env.outputs.overlay }}/
 
           # Only commit if there are actual changes
           if git diff --staged --quiet; then

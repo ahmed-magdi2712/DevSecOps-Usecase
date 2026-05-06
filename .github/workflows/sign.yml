@@ -15,6 +15,7 @@
 #         registry: ghcr.io
 #         image-name: ${{ github.repository }}
 #         image-digest: ${{ needs.build.outputs.image-digest }}
+#         cosign-public-key: ${{ vars.COSIGN_PUBLIC_KEY }}
 #       secrets:
 #         COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
 #         COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
@@ -35,6 +36,10 @@ on:
         required: true
       image-digest:
         description: "Docker image digest to sign"
+        type: string
+        required: true
+      cosign-public-key:
+        description: "Cosign public key for image verification"
         type: string
         required: true
     secrets:
@@ -128,7 +133,7 @@ jobs:
             --key env://COSIGN_PUBLIC_KEY \
             ${{ inputs.registry }}/${{ env.IMAGE_NAME_LOWER }}@${{ inputs.image-digest }}
         env:
-          COSIGN_PUBLIC_KEY: ${{ vars.COSIGN_PUBLIC_KEY }}
+          COSIGN_PUBLIC_KEY: ${{ inputs.cosign-public-key }}
 
       - name: Verify SBOM Attachment
         run: |

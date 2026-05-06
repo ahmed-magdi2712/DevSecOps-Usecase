@@ -28,3 +28,4 @@ CVE-2024-47874
 # KSV-0125: ghcr.io is a trusted registry (GitHub Container Registry)
 KSV-0125
 KSV-0053
+KSV-0014

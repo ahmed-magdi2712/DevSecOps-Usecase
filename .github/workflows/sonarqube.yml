@@ -1,15 +1,18 @@
 # ==============================================================================
 # Reusable Workflow: SonarQube Scan
 # ==============================================================================
-# Performs SonarQube analysis with AI-powered features including:
-#   - SonarQube Scan with AI CodeFix
+# Performs SonarQube analysis with:
+#   - SonarQube Scan
 #   - Quality Gate validation
-#   - AI Fix Suggestions on failure
+#   - Metrics publishing (bugs, vulnerabilities, coverage, etc.)
 #
 # Usage:
 #   jobs:
 #     sonarqube:
 #       uses: <org>/<repo>/.github/workflows/sonarqube.yml@main
+#       with:
+#         python-version: '3.12'
+#         sonar-host-url: 'https://sonarcloud.io'
 #       secrets:
 #         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 # ==============================================================================
@@ -24,6 +27,11 @@ on:
         type: string
         required: false
         default: "3.12"
+      sonar-host-url:
+        description: "SonarQube server host URL"
+        type: string
+        required: false
+        default: "https://sonarcloud.io"
     secrets:
       SONAR_TOKEN:
         description: "SonarQube authentication token"
@@ -35,7 +43,7 @@ permissions:
 
 jobs:
   sonarqube:
-    name: "🟠 SonarQube (AI)"
+    name: "🟠 SonarQube"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -60,7 +68,7 @@ jobs:
           name: test-reports
           path: reports/
 
-      - name: SonarQube Scan with AI CodeFix
+      - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v7.1.0
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -70,21 +78,52 @@ jobs:
             -Dsonar.scm.revision=${{ github.sha }}
 
       - name: SonarQube Quality Gate
+        id: sonarqube-quality-gate-check
         uses: SonarSource/sonarqube-quality-gate-action@v1
         timeout-minutes: 5
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
-      - name: Get AI Fix Suggestions
-        if: failure()
+      - name: Publish SonarQube Metrics Summary
+        if: always()
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ inputs.sonar-host-url }}
         run: |
-          echo "## 🔍 SonarQube AI Analysis Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Quality Gate failed. AI-powered suggestions are available in SonarQube." >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### AI Features Enabled:" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ AI Code Suggestions" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ AI CodeFix" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ AI-Powered Issue Explanation" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "👉 Review the [SonarQube Dashboard] >> $GITHUB_STEP_SUMMARY
+          PROJECT_KEY=$(grep "^projectKey=" .scannerwork/report-task.txt | cut -d= -f2-)
+          DASHBOARD_URL=$(grep "^dashboardUrl=" .scannerwork/report-task.txt | cut -d= -f2-)
+
+          METRICS="bugs,vulnerabilities,code_smells,coverage,duplicated_lines_density,security_hotspots"
+
+          RESPONSE=$(curl -s -u "${SONAR_TOKEN}:" \
+            "${SONAR_HOST_URL}/api/measures/component?component=${PROJECT_KEY}&metricKeys=${METRICS}")
+
+          get_metric() {
+            echo "$RESPONSE" | jq -r --arg key "$1" \
+              '.component.measures[] | select(.metric == $key) | .value // "N/A"'
+          }
+
+          BUGS=$(get_metric "bugs")
+          VULNS=$(get_metric "vulnerabilities")
+          SMELLS=$(get_metric "code_smells")
+          COVERAGE=$(get_metric "coverage")
+          DUPLICATION=$(get_metric "duplicated_lines_density")
+          HOTSPOTS=$(get_metric "security_hotspots")
+
+          GATE_STATUS="${{ steps.sonarqube-quality-gate-check.outputs.quality-gate-status }}"
+          [ "$GATE_STATUS" == "PASSED" ] && GATE_ICON="✅" || GATE_ICON="❌"
+
+          cat >> $GITHUB_STEP_SUMMARY <<EOF
+          ## 🔍 SonarQube Report
+
+          **Quality Gate: ${GATE_ICON} ${GATE_STATUS}** | [View Dashboard](${DASHBOARD_URL})
+
+          | Metric | Value |
+          |--------|-------|
+          | 🐛 Bugs | ${BUGS} |
+          | 🔒 Vulnerabilities | ${VULNS} |
+          | 🔥 Security Hotspots | ${HOTSPOTS} |
+          | 🧹 Code Smells | ${SMELLS} |
+          | 📊 Coverage | ${COVERAGE}% |
+          | 📋 Duplication | ${DUPLICATION}% |
+          EOF
