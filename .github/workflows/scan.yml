@@ -39,6 +39,7 @@ on:
 permissions:
   contents: write
   security-events: write
+  packages: write
 
 jobs:
   scan:
