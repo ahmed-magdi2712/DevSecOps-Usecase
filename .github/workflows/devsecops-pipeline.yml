@@ -12,12 +12,12 @@ concurrency:
 
 # Minimum permissions required
 permissions:
-  contents: read
+  contents: write
   security-events: write
   id-token: write
   packages: write
   attestations: write
-  actions: read
+  actions: write
   checks: write
   pull-requests: write
 
